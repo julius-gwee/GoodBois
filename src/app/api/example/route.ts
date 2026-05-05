@@ -1,25 +1,26 @@
-import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
+
 /**
  * GET /api/example
  *
- * Example Route Handler that queries Supabase.
- * Replace "your_table" with a real table name.
+ * Proxies data requests to the FastAPI backend.
+ * All Supabase queries run server-side in FastAPI, never in the browser.
  */
 export async function GET() {
-  const supabase = await createClient();
+  const res = await fetch(`${BACKEND_URL}/example/`);
 
-  const { data, error } = await supabase
-    .from("your_table")
-    .select("*")
-    .limit(10);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!res.ok) {
+    return NextResponse.json(
+      { error: "Failed to fetch data from backend" },
+      { status: res.status }
+    );
   }
 
-  return NextResponse.json({ data });
+  const data = await res.json();
+  return NextResponse.json(data);
 }
+

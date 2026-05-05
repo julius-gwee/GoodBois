@@ -10,15 +10,18 @@ export default function LoginPage() {
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    // Lazily import so the Supabase client is only created in the browser
-    const { createClient } = await import("@/lib/supabase/client");
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    const res = await fetch("/api/auth/send-magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     });
+    const data = await res.json();
     setLoading(false);
-    setMessage(error ? error.message : "Check your email for the login link!");
+    setMessage(
+      res.ok
+        ? "Check your email for the login link!"
+        : (data.error ?? "Something went wrong.")
+    );
   }
 
   return (
