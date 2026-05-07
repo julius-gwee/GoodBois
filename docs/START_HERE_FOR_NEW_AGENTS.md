@@ -4,7 +4,6 @@ This file preserves the important context from the setup conversation so a new C
 
 ## Repository
 
-- Local repo: `C:\Users\juliu\Documents\Uni\CS\Hackathons\GoodBois`
 - GitHub repo: `https://github.com/julius-gwee/GoodBois`
 - Visibility: public
 - Base template: `https://github.com/pastchum/hackathon-template-with-database-backend`
@@ -137,13 +136,3 @@ For any new agent or developer:
 - `npm install` completed.
 - `npm run lint` passed before this handoff.
 - Repo pushed publicly to GitHub at `https://github.com/julius-gwee/GoodBois`.
-
-## Immediate Next Step for the New Project
-
-Open a new Codex project directly at:
-
-```txt
-C:\Users\juliu\Documents\Uni\CS\Hackathons\GoodBois
-```
-
-Then ask the agent to read `docs/START_HERE_FOR_NEW_AGENTS.md` and `AGENTS.md` before implementing anything.
