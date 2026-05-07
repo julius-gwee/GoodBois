@@ -8,10 +8,11 @@ Care Access Map is a hackathon MVP for a Singapore eldercare/accessibility map. 
 
 Read first:
 
-1. `docs/care-access-map-prd-and-backlog.md`
-2. `docs/standards/product-principles.md`
-3. `docs/system-design/architecture.md`
-4. `docs/agents/team-operating-model.md`
+1. `docs/START_HERE_FOR_NEW_AGENTS.md`
+2. `docs/care-access-map-prd-and-backlog.md`
+3. `docs/standards/product-principles.md`
+4. `docs/system-design/architecture.md`
+5. `docs/agents/team-operating-model.md`
 
 ## Non-Negotiables
 

@@ -10,10 +10,11 @@ Use this skill for any product, design, code, data, demo, or documentation task 
 ## Read First
 
 1. `AGENTS.md`
-2. `docs/care-access-map-prd-and-backlog.md`
-3. `docs/standards/product-principles.md`
-4. `docs/standards/data-contracts.md`
-5. `docs/system-design/architecture.md`
+2. `docs/START_HERE_FOR_NEW_AGENTS.md`
+3. `docs/care-access-map-prd-and-backlog.md`
+4. `docs/standards/product-principles.md`
+5. `docs/standards/data-contracts.md`
+6. `docs/system-design/architecture.md`
 
 ## Product Guardrails
 

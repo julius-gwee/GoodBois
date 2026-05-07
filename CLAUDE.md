@@ -1,6 +1,6 @@
 # Claude Code Instructions
 
-Read `AGENTS.md` first. This file only adds Claude-specific compatibility guidance.
+Read `docs/START_HERE_FOR_NEW_AGENTS.md` and `AGENTS.md` first. This file only adds Claude-specific compatibility guidance.
 
 ## Project Behavior
 
