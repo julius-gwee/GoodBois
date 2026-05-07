@@ -1,6 +1,6 @@
-# Hackathon Starter — Next.js + FastAPI + Supabase
+# GoodBois
 
-A batteries-included starter template for hackathons.
+A Care Access Map hackathon app built from a batteries-included Next.js, FastAPI, and Supabase starter.
 
 **Stack:** Next.js 16 · TypeScript · Tailwind CSS · FastAPI · Supabase (Auth + Database)
 
