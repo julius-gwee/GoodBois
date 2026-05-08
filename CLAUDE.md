@@ -19,16 +19,18 @@ shadcn is installed (`src/components/ui/*`, `@/lib/utils` for `cn()`, neutral ba
 
 ## Recommended Claude Subagents
 
-- `map-discovery-agent`: map/list/search/filter work.
-- `hazard-admin-agent`: resource detail, reports, admin review, export.
-- `accessibility-voice-agent`: elderly/caregiver UX, voice, accessibility.
-- `safety-demo-agent`: route deviation ping, Grab handoff, demo flow.
+Filenames are preserved from the prior product; missions are rewritten for the kiosk pivot. Full role prompts live in `.claude/agents/*.md`; lane summary in `docs/agents/subagents.md`.
+
+- `accessibility-voice-agent`: kiosk voice/AI pipeline (STT / TTS / translation / triage LLM / orchestrator) **and** kiosk frontend UX (shell, listening state, language picker, accessibility, multilingual).
+- `hazard-admin-agent`: Worker tool surface (`signpost`, `findNearby`, `simulateBooking`, `generateReceipt`, `escalateToMpRc`), agency directory, receipt PDF, MP/RC export adapter; hazard reporting (NTH).
+- `map-discovery-agent`: NTH lane — resource discovery + map render + OneMap Barrier-Free routing.
+- `safety-demo-agent`: end-to-end demo orchestration, scripted-fallback safety net, pre-warm checklist; route safety / Grab handoff (NTH low priority).
 
 ## Claude Hook Policy
 
 Hooks should be used for guardrails, not heavy automation. Use repository hooks in `.githooks/` for git-level checks. If configuring Claude Code hooks, mirror the same checks:
 
-- Block commits with obvious secrets.
+- Block commits with obvious secrets (Cloudflare API keys, SEALion keys, agency keys, residual Supabase keys until decommission lands).
 - Warn on edits to another workstream's files.
 - Remind agents to update docs when data contracts change.
 

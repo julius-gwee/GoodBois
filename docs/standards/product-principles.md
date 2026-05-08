@@ -2,102 +2,105 @@
 
 ## Product Promise
 
-Care Access Map helps caregivers, seniors, volunteers, and frontline staff find practical verified accessibility support faster.
+GoodBois helps less tech-savvy elderly residents in HDB void decks find the right agency / hotline / local resource for their request — in their language, 24/7, without queueing.
 
-The product does not promise perfect routing, official hazard closure, emergency response, clinical monitoring, or guaranteed transport availability.
+The product does **not** promise: emergency response, clinical advice, official agency dispatch, guaranteed resolution, or replacement for human caseworkers. Complex cases are routed to MPs / RCs as structured cases; the resolution still happens in the existing system.
 
 ## MVP Positioning
 
 Use this sentence consistently:
 
-> Care Access Map is a community-maintained operational map for eldercare access, starting with wheelchair-friendly journeys, hazard-aware route notes, voice-enabled search, caregiver handoff, and opt-in safety pings.
+> GoodBois is a void-deck voice kiosk that triages elderly requests in their language, signposts to the right agency or hotline, and escalates complex cases to MPs and RCs with structured context.
 
 Avoid these descriptions:
 
-- Google Maps for elderly people.
-- Grab for wheelchair users.
-- Government dispatch system.
-- Emergency wandering prevention.
-- AR navigation for seniors.
-- All-in-one caregiver superapp.
+- Replacement for AIC.
+- Replacement for LifeSG.
+- Government hotline.
+- Emergency response system.
+- Medical advice system.
+- All-in-one elderly superapp.
+- Replacement for MP / RC sessions.
 
 ## MVP Features
 
 The hackathon MVP includes:
 
-- Custom elderly-friendly map and list interface using OneMap-compatible coordinates.
-- Seeded resources for one realistic neighbourhood or care journey.
-- Resource details with accessibility notes and verification status.
-- Submission/report issue flow.
-- Hazard and maintenance reporting with admin review and structured export.
-- Elderly/caregiver UI mode switch.
-- Voice search and basic spoken guidance with fallback controls.
-- Grab deep-link or copyable pickup/drop-off handoff.
-- Opt-in route deviation safety ping demo.
-- Shareable route/resource cards.
+- Voice pipeline: STT → SEALion translate → LLM triage → orchestrator → tool calls → SEALion translate → TTS.
+- Multi-turn dialogue with bounded follow-ups (≤3).
+- Allowlisted tool surface: `signpost`, `findNearby`, `simulateBooking`, `generateReceipt`, `escalateToMpRc`.
+- Curated `AgencyContact` directory.
+- Kiosk UI: language picker, listening state, transcript, response card, full-screen receipt PDF, idle reset, consent banner.
+- Multilingual: English + Mandarin + Hokkien target.
+- Receipt PDF generated server-side, shown in browser.
+- Simulated booking (or scripted if time-pressed).
+- MP/RC structured-case CSV export.
+- Anonymous-by-default; identity capture only on opt-in.
+
+## Nice-to-Have Features
+
+Build only after MVP is solid:
+
+1. Resource discovery + map + OneMap Barrier-Free routing (high-priority NTH).
+2. Hazard reporting via the kiosk.
+3. Mode switching, Grab handoff, route safety / caregiver ping (low-priority NTH; held over from prior product).
 
 ## Future Extensions
 
-Keep these out of MVP implementation unless explicitly re-scoped:
-
-- Government dispatch or work-order integration.
-- Formal Grab API integration, transport vouchers, or commercial partnership flow.
-- Google Street View live AR directions.
-- Official Waze/Google/OneMap route engine integration for hazard avoidance.
-- Live restroom occupancy.
-- Real-time equipment availability.
-- Clinical or emergency monitoring.
+- Real agency integrations (replace simulated bookings).
+- NGO linking with optional identity capture.
+- Real printer for receipts.
+- Multi-kiosk deployment.
 
 ## Trust Language
 
-Use concrete confidence labels:
+Use:
 
-- `Verified`
-- `Community submitted`
-- `Needs recheck`
-- `Active hazard`
-- `Resolved`
-- `Unknown`
-
-Prefer:
-
-- "Reported blocked ramp, not yet verified."
-- "Verified by community partner on 2026-05-01."
-- "Call ahead for critical trips."
+- "Reported broken lift, signposting HDB Essential Services."
+- "Suggested next steps for the MP volunteer to action."
+- "Hotline: 1800-XXX-XXXX (verified directory)."
+- "This is not an official agency dispatch."
 
 Avoid:
 
-- "Safe route guaranteed."
 - "Government has been notified."
-- "This route prevents wandering."
-- "Grab will provide an accessible vehicle."
+- "Lift will be fixed by tomorrow."
+- "Help is on the way."
+- "Your appointment is confirmed." (unless it is a real booking — MVP is simulated)
 
-## Safety Ping Copy Rules
+## Allowlist Rules
 
-Safety pings are caregiver check-in prompts.
+- Hotlines and agencies always come from the curated `AgencyContact` directory.
+- The triage LLM picks; it does not generate phone numbers, addresses, or hours.
+- "Suggested next steps" must be allowlist-validated before being shown or written into a `Case`.
 
-Required copy ideas:
+## Privacy and Consent Rules
 
-- "This is not emergency monitoring."
-- "Location sharing ends when the route session ends."
-- "Only start this with consent from the person being supported."
-- "If there is immediate danger, contact emergency services."
+- Anonymous by default. Identity capture is optional and asked only when needed.
+- NRIC is never captured.
+- Consent banner before listening: "This kiosk listens only after you tap the language tile. Audio is used to understand your request and is not stored after this session."
+- Audio not retained beyond the session.
+- KV session cleared on idle reset.
 
-## Hazard Report Rules
+## Out-of-Scope Triage Rules
 
-- Community reports must be visibly distinct from verified/official reports.
-- Hazards can lower route confidence, but should not silently remove options.
-- Exports prepare reports for future routing to agencies or venue operators; exports do not mean dispatch happened.
+When the triage LLM detects:
+
+- Medical emergency: signposts 995 / 1777, kiosk says "If this is an emergency, please dial 995."
+- Mental health crisis: signposts SOS hotline.
+- Legal advice questions: signposts Pro Bono SG; clarifies it is not legal advice.
 
 ## Demo Success Definition
 
-The demo should show one complete story:
+The demo shows one complete story:
 
-1. Search destination by text or voice.
-2. Switch elderly/caregiver mode.
-3. Select accessible pickup/drop-off.
-4. See route notes and hazard warning.
-5. Open Grab handoff or copy driver instructions.
-6. Start route safety session.
-7. Submit hazard report.
-8. Admin reviews and exports report.
+1. Resident taps language tile.
+2. Resident speaks in dialect; transcript appears.
+3. Triage asks one bounded follow-up.
+4. Resident answers.
+5. Triage signposts an agency (curated) and offers MP/RC escalation.
+6. Resident accepts; case is written; export fires.
+7. Receipt PDF appears full-screen, bilingual.
+8. Idle reset.
+
+The scripted-fallback path is rehearsed and bookmarked behind a feature flag.

@@ -1,48 +1,42 @@
 # GoodBois
 
-A Care Access Map hackathon app built from a batteries-included Next.js, FastAPI, and Supabase starter.
+A voice-first kiosk for less tech-savvy elderly residents in HDB void decks. Speaks Mandarin, Hokkien, and other SEA languages. Triages requests, signposts to the right agency / hotline / local resource, and escalates complex cases to MP/RC volunteers as structured cases.
 
-**Stack:** Next.js 16 · TypeScript · Tailwind CSS · FastAPI · Supabase (Auth + Database)
+Built for **The Good Hack 2026**.
 
----
+**Stack:** Next.js 16 (Cloudflare Pages) · TypeScript · Tailwind v4 + shadcn/ui · Cloudflare Workers · Cloudflare Workers AI (STT / TTS / LLM) · SEALion (translation) · Cloudflare D1 / R2 / KV
 
-## Architecture
-
-```
-Browser (Next.js client)
-  │
-  │  fetch("/api/...")
-  ▼
-Next.js Route Handlers   ←── Supabase SSR session management (server-side only)
-  │
-  │  fetch("http://localhost:8000/...")
-  ▼
-FastAPI backend (server/)
-  │
-  │  supabase-py
-  ▼
-Supabase (Auth + Database)
-```
-
-**Key principle:** The browser never imports or calls Supabase directly. All Supabase interactions happen server-side — either in the FastAPI backend or in Next.js server-side code (session refresh, auth callback).
+For the locked stack and architecture, read `docs/system-design/tech-stack.md`. For the product brief, read `docs/care-access-map-prd-and-backlog.md`.
 
 ---
 
-## Features
+## Pipeline
 
-- ✅ **Next.js App Router** with TypeScript and Tailwind CSS
-- ✅ **FastAPI backend** (`server/`) — all Supabase data/auth queries run here
-- ✅ **No Supabase client in the browser** — frontend only calls Next.js API routes
-- ✅ **Supabase Auth** — magic-link sign-in proxied through FastAPI
-- ✅ **Protected routes** via Next.js proxy
-- ✅ **Local Supabase** — `supabase/config.toml` for `supabase start` (Docker)
-- ✅ **Docker Compose** for the FastAPI backend
+```
+Resident speaks (Mandarin / Hokkien / English / …)
+   │
+   ▼
+Cloudflare Worker (orchestrator)
+   ├─ STT (Workers AI)
+   ├─ Translate user → English (SEALion)
+   ├─ LLM triage + tool selection (Workers AI)
+   ├─ Tool calls (signpost / findNearby / simulateBooking / generateReceipt / escalateToMpRc)
+   ├─ Translate English → user (SEALion)
+   └─ TTS (Workers AI)
+   │
+   ▼
+Kiosk plays response, shows on-screen card or full-screen receipt PDF
+```
+
+**Key principle:** the frontend never calls Workers AI or SEALion directly. All AI calls go through the orchestrator Worker.
 
 ---
 
 ## Quick Start
 
-### 1. Clone & install Next.js dependencies
+> **Note:** the repo currently includes a FastAPI + Supabase scaffold (`server/`, `src/lib/supabase/*`, `src/proxy.ts`). These are scheduled for decommission as part of the Cloudflare migration. Until that lands, ignore them; the new build sits in `src/` (frontend) + `workers/` (backend, to be created).
+
+### 1. Clone & install
 
 ```bash
 git clone <your-repo-url>
@@ -50,177 +44,97 @@ cd <your-repo>
 npm install
 ```
 
-### 2. Start local Supabase (requires [Supabase CLI](https://supabase.com/docs/guides/cli) + Docker)
+### 2. Frontend dev server
 
 ```bash
-supabase start
+npm run dev
 ```
 
-This spins up local PostgreSQL, Auth, Storage, and Studio using Docker.  
-After startup the CLI prints your local `URL`, `anon key`, and `service_role key`.
+Open `http://localhost:3000`.
 
-Open the Studio dashboard: [http://localhost:54323](http://localhost:54323)  
-Outgoing emails are caught by Inbucket: [http://localhost:54324](http://localhost:54324)
-
-To stop:
+### 3. Worker dev (once the Worker is scaffolded)
 
 ```bash
-supabase stop
+# First time:
+npm install -g wrangler
+wrangler login
+
+# Per session:
+cd workers
+wrangler dev
 ```
 
-### 3. Configure environment variables
+The Worker runs at `http://127.0.0.1:8787`. Frontend reads `NEXT_PUBLIC_WORKER_URL` to find it.
 
-**Next.js** — copy and fill in:
+### 4. Configure environment variables
 
 ```bash
 cp .env.example .env.local
 ```
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<local-anon-key-from-supabase-start>
-BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_WORKER_URL=http://127.0.0.1:8787
+NEXT_PUBLIC_KIOSK_LANG_DEFAULT=en
 ```
 
-**FastAPI backend** — copy and fill in:
-
-```bash
-cp server/.env.example server/.env
-```
-
-```env
-SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_ANON_KEY=<local-anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<local-service-role-key>
-```
-
-### 4. Start the FastAPI backend
-
-**Option A — Docker Compose (recommended):**
-
-```bash
-docker compose up --build
-```
-
-**Option B — directly:**
-
-```bash
-cd server
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-FastAPI runs at [http://localhost:8000](http://localhost:8000).  
-Interactive docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-### 5. Start the Next.js development server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### 6. Configure the auth redirect URL
-
-In the local Supabase Studio (**Authentication → URL Configuration**) add:
-
-```
-http://localhost:3000/auth/callback
-```
-
-For cloud Supabase, add the same in your project dashboard.
+Worker secrets are managed via `wrangler secret put` — see `docs/system-design/tech-stack.md` "Env & secrets".
 
 ---
 
-## Project Structure
+## Project Structure (target)
 
 ```
 .
-├── src/                              # Next.js app
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── auth/
-│   │   │   │   └── send-magic-link/route.ts  # Proxy → FastAPI /auth/send-magic-link
-│   │   │   └── example/route.ts              # Proxy → FastAPI /example/
-│   │   ├── auth/
-│   │   │   └── callback/route.ts    # OAuth / magic-link exchange (server-side)
-│   │   ├── dashboard/page.tsx       # Protected dashboard page
-│   │   ├── login/page.tsx           # Sign-in form (no Supabase in browser)
-│   │   └── page.tsx                 # Home page
+├── src/                   # Next.js kiosk frontend
+│   ├── app/               # App Router routes
+│   ├── components/
+│   │   ├── ui/            # shadcn primitives
+│   │   ├── atoms/         # reusable kiosk controls
+│   │   └── kiosk/         # kiosk feature composites
 │   ├── lib/
-│   │   └── supabase/
-│   │       ├── server.ts            # Server-side Supabase client (SSR session mgmt)
-│   │       └── middleware.ts        # Session refresh helper
-│   └── proxy.ts                     # Route protection proxy
+│   └── types/             # TS types matching data-contracts.md
 │
-├── server/                          # FastAPI backend
-│   ├── main.py                      # App entry point + CORS
-│   ├── supabase_client.py           # Supabase admin + anon clients
-│   ├── routers/
-│   │   ├── auth.py                  # POST /auth/send-magic-link
-│   │   └── example.py               # GET /example/
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env.example
+├── workers/               # Cloudflare Worker backend (orchestrator + tools)
+│   ├── src/
+│   │   ├── orchestrator/
+│   │   ├── tools/
+│   │   ├── ai/            # STT / TTS / translate / LLM clients
+│   │   ├── db/            # D1 access (Drizzle or raw)
+│   │   └── pdf/
+│   ├── migrations/        # D1 SQL migrations
+│   └── wrangler.toml
 │
-├── supabase/                        # Local Supabase (CLI)
-│   ├── config.toml                  # `supabase start` configuration
-│   └── migrations/                  # DB migrations (supabase migration new <name>)
-│
-├── docker-compose.yml               # Runs the FastAPI backend
-└── .env.example                     # Next.js environment variables
+└── docs/
+    ├── system-design/
+    │   ├── tech-stack.md           # SSOT for stack + architecture rules
+    │   ├── architecture.md
+    │   └── integration-boundaries.md
+    ├── standards/
+    │   ├── data-contracts.md       # canonical types
+    │   ├── product-principles.md
+    │   └── ui-ux-standards.md
+    ├── hackathon/
+    │   ├── mvp-execution-plan.md
+    │   └── definition-of-done.md
+    └── care-access-map-prd-and-backlog.md   # kiosk PRD (filename predates the pivot)
 ```
 
 ---
 
-## Auth Flow
+## Documentation
 
-1. User visits `/login` and submits their email.
-2. Next.js calls `POST /api/auth/send-magic-link` (server-side proxy).
-3. FastAPI calls `supabase.auth.sign_in_with_otp(...)` — Supabase sends the email.
-4. User clicks the link → redirected to `/auth/callback?code=...`.
-5. Next.js callback exchanges the code for a session (server-side) and redirects to `/dashboard`.
-6. All routes except `/`, `/login`, and `/auth/**` require authentication (enforced in `src/proxy.ts`).
+For new team members and AI agents:
 
----
-
-## Customizing
-
-| What | Where |
-|------|-------|
-| Add a new API endpoint | `server/routers/` |
-| Add database queries | `server/routers/example.py` |
-| Add a DB migration | `supabase migration new <name>` |
-| Change protected routes | `src/proxy.ts` |
-| Add OAuth providers | `server/routers/auth.py` |
-| Add new Next.js pages | `src/app/<name>/page.tsx` |
-
----
-
-## Using a Cloud Supabase Project
-
-Replace the local URLs/keys with the values from  
-**Supabase dashboard → Settings → API**:
-
-```env
-# .env.local (Next.js)
-NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-
-# server/.env (FastAPI)
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_ANON_KEY=<anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
-```
+1. `docs/START_HERE_FOR_NEW_AGENTS.md`
+2. `AGENTS.md` (or `CLAUDE.md` / `.codex/skills/care-access-map/SKILL.md` for tool-specific rules)
+3. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD
+4. `docs/system-design/tech-stack.md` — locked stack
+5. `docs/standards/data-contracts.md` — canonical types
 
 ---
 
 ## Deploying
 
-**Next.js** → [Vercel](https://vercel.com) (set env vars in project settings)  
-**FastAPI** → any container host (Railway, Render, Fly.io, etc.) using the `server/Dockerfile`  
-**Database** → cloud Supabase project (free tier available)
-
-
+- **Frontend** → Cloudflare Pages
+- **Worker** → Cloudflare Workers (`wrangler deploy`)
+- **Data** → Cloudflare D1, R2, KV (free tier covers expected demo load)

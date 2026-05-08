@@ -2,147 +2,156 @@
 
 ## Architecture Goal
 
-Build a hackathon MVP that can be implemented quickly with seeded data, while keeping the major future integrations replaceable: map provider, transport handoff, hazard routing, and notifications.
+Build a hackathon MVP **voice kiosk for elderly residents in HDB void decks**: voice-first triage in their language, signposting to the right agency / hotline / local resource, and structured-case escalation to MP/RC volunteers. Demo runs on laptops. The major future integrations stay replaceable: speech provider, LLM, MP/RC export channel, map provider, transport handoff, agency APIs.
 
 ## Stack
 
 The stack is locked in `tech-stack.md`. In short:
 
-- **Web:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + shadcn/ui in `src/`.
-- **API:** FastAPI + `supabase-py` + Pydantic v2 in `server/`. Owns all CRUD, business logic, and (planned) AI endpoints.
-- **Persistence:** Supabase Postgres. Seed data ships as Supabase migrations under `supabase/migrations/`, not in-app JSON.
-- **Auth:** Supabase magic-link, proxied through FastAPI. The browser never imports or calls Supabase directly.
-- **Map:** react-leaflet (planned) behind a `mapAdapter`, with OneMap tiles + Barrier-Free Access API.
-- **Voice:** browser Web Speech API + `SpeechSynthesis` (planned), with text/touch fallback.
-- **Export:** browser-generated CSV/JSON.
-- **Notifications:** in-app/demo notification first.
+- **Frontend:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + shadcn/ui in `src/`. Hosted on Cloudflare Pages.
+- **Backend:** Cloudflare Workers (TypeScript) in `workers/` (planned). Owns the orchestrator and all tool implementations.
+- **AI:** Cloudflare Workers AI for STT, TTS, and triage LLM. SEALion for SEA-language translation.
+- **Database:** Cloudflare D1 (SQLite). Seed data ships as D1 migrations.
+- **Object storage:** Cloudflare R2 for receipt PDFs.
+- **Session state:** Cloudflare KV for short-lived multi-turn context.
+- **Auth:** none in MVP. Kiosk is anonymous.
+- **Map (NTH):** react-leaflet behind a `mapAdapter`, with OneMap tiles + Barrier-Free Access API.
+- **Browser fallback:** Web Speech API + touch input as a last resort if the Cloudflare path fails on stage.
 
-## Layered Design
+## Pipeline
 
 ```mermaid
 flowchart TD
-  UI["UI: elderly/caregiver modes, map, list, details"]
-  Features["Feature modules: search, hazards, admin, safety, transport"]
-  Domain["Domain contracts: Resource, HazardReport, RouteSafetySession"]
-  Adapters["Adapters: map provider, voice, Grab handoff, export, notification"]
-  API["FastAPI (server/): CRUD, business logic, AI"]
-  DB["Supabase Postgres + Auth"]
-  Future["Future services: agency dispatch, Grab API, push/SMS"]
+  Kiosk["Kiosk UI: language picker, listening state, transcript, response"]
+  STT["Workers AI: STT (audio → text in user lang)"]
+  TXin["SEALion: translate (user lang → English)"]
+  Tri["Workers AI LLM: triage + tool selection"]
+  Orc["Orchestrator: pick + invoke tools"]
+  Tools["Tools: signpost, findNearby, simulateBooking, generateReceipt, escalateToMpRc"]
+  TXout["SEALion: translate (English → user lang)"]
+  TTS["Workers AI: TTS (text → audio)"]
+  Out["Kiosk UI: spoken response + on-screen card / receipt"]
 
-  UI --> Features
-  Features --> Domain
-  Features --> Adapters
-  Features --> API
-  API --> DB
-  Adapters -. later .-> Future
+  Kiosk --> STT
+  STT --> TXin
+  TXin --> Tri
+  Tri --> Orc
+  Orc --> Tools
+  Tools --> Orc
+  Orc --> TXout
+  TXout --> TTS
+  TTS --> Out
 ```
+
+The orchestrator can re-enter triage with a follow-up question (multi-turn, bounded to ~3 follow-ups) before the response leaves the Worker.
 
 ## Core Modules
 
-### Resource Discovery
+### Kiosk Voice Pipeline (MVP)
 
 Responsibilities:
 
-- Load resources.
-- Filter by category, verification, open now, language, free/paid, hazard status.
-- Render map and list from the same filtered result set.
-- Search by typed input or voice transcript.
+- Capture audio in the user's language and stream to the Worker.
+- Render listening state, transcript, and response (with on-screen card for visual fallback).
+- Maintain a per-session ID linked to KV-backed session state.
+- Handle multi-turn follow-ups without losing prior context.
+- Provide a touch / text fallback for any user that can't or won't speak.
 
-### Resource Detail
-
-Responsibilities:
-
-- Show practical access notes.
-- Show category-specific details.
-- Show verification and confidence status.
-- Provide share/copy actions.
-
-### Hazard Reporting
+### Triage + Orchestrator (MVP)
 
 Responsibilities:
 
-- Submit hazard or maintenance report.
-- Link report to resource or route segment where possible.
-- Show public status without overclaiming.
-- Let admin review and export.
+- Translate input from user language to English.
+- Run the LLM with an **allowlisted** tool registry (`signpost`, `findNearby`, `simulateBooking`, `generateReceipt`, `escalateToMpRc`).
+- Apply bounded follow-ups when the request is underspecified (≤3).
+- Translate the final response back to the user's language.
+- Log every utterance and tool invocation in D1 for the receipt + MP/RC case.
 
-### Admin Review
-
-Responsibilities:
-
-- Review resource submissions.
-- Review hazard reports.
-- Update status.
-- Export CSV/JSON.
-
-### Mode and Voice
+### Signposting + Booking Tools (MVP)
 
 Responsibilities:
 
-- Switch elderly/caregiver UI.
-- Persist mode for session.
-- Provide voice search.
-- Provide spoken guidance text/audio where supported.
-- Maintain full non-voice fallback.
+- `signpost(agencyKey)` — return a curated `AgencyContact` (agency name, hotline, address, opening hours, multilingual blurb).
+- `findNearby(category)` — query D1 for nearby resources by category. NTH frontend renders a map; MVP returns a text/voice description with walking direction.
+- `simulateBooking(agencyKey, slot)` — return a `BookingConfirmation` (preset outcomes for demo).
+- The triage LLM only sees this allowlisted tool surface — it cannot fabricate hotlines.
 
-### Transport Handoff
-
-Responsibilities:
-
-- Build a destination/pickup payload from shared data.
-- Open Grab deep link where supported.
-- Provide copyable fallback.
-- Avoid bookings, payments, or driver allocation.
-
-### Route Safety
+### Receipt (MVP)
 
 Responsibilities:
 
-- Start an opt-in route safety session.
-- Compare current/simulated location to route corridor.
-- Trigger caregiver ping when deviation threshold is crossed.
-- Stop tracking when session ends.
+- Render a PDF receipt summarising the case (transcript snippet, language, signposted agency, simulated booking detail, case ID).
+- Store the PDF in R2; return a signed URL.
+- Kiosk displays it full-screen ("printer not present in demo").
 
-## Data Flow
+### MP/RC Case Export (MVP)
 
-1. Resources, hazards, and demo routes load from Supabase via FastAPI.
-2. Search/filter produces visible resources.
-3. Map/list render visible resources.
-4. Selecting a resource opens detail.
-5. User can share, open Grab handoff, report hazard, or start route safety.
-6. Hazard reports and admin reviews persist via FastAPI to Supabase.
-7. Export serializes reviewed hazard reports from FastAPI as CSV/JSON.
+Responsibilities:
+
+- For complex cases, write a `Case` row in D1 with structured fields (transcript, language, English summary, suggested next steps, kiosk location, optional resident block/unit alias).
+- Export queued cases via an `mpRcExportAdapter` (default: signed CSV download URL; alt: webhook; alt: Cloudflare Email Routing).
+- MP/RC volunteers consume cases in their existing dashboards. We do not build one.
+
+### Resource Discovery + Map + Wheelchair Routing (NTH — high priority among NTH)
+
+Responsibilities:
+
+- List/filter elderly-friendly services.
+- Render map and list from the same filtered set.
+- OneMap Barrier-Free routing to a chosen destination.
+- Reuses `Resource` data contract.
+
+### Hazard Reporting, Mode Switch, Grab Handoff, Route Safety (NTH — low priority)
+
+Held over from the prior product. Build only after MVP is solid. Adapter shapes preserved in `integration-boundaries.md`.
+
+## Data Flow (MVP happy path)
+
+1. Resident taps the kiosk language tile. Session ID created in KV.
+2. Resident speaks; audio streams to the Worker.
+3. Worker runs STT → translate (user → English).
+4. Triage LLM picks a tool. If underspecified, returns a follow-up question (loop with bounded retry).
+5. Tool returns a structured result (signpost / nearby / simulated booking / escalation).
+6. Worker generates the response in English, translates back to the user's language, runs TTS.
+7. Kiosk plays audio + shows the response card.
+8. If a receipt is generated, the kiosk shows it full-screen with a "go back" button.
+9. If escalated, the `Case` is written; the export adapter fires per its configured channel.
+10. Idle timer resets the kiosk after 30s of inactivity (privacy).
 
 ## Adapter Boundaries
 
-Keep these as replaceable modules:
+Keep these as replaceable modules (full list and rules in `integration-boundaries.md`):
 
-- `mapAdapter`: render map, geocode/search, route overlay.
-- `voiceAdapter`: listen, stop, return transcript.
-- `transportAdapter`: build Grab URL or copy text.
-- `exportAdapter`: CSV/JSON generation.
-- `notificationAdapter`: in-app alert now, SMS/push later.
+- `sttAdapter` — audio → text in user language.
+- `translateAdapter` — bidirectional user lang ↔ English.
+- `llmAdapter` — triage + tool calling.
+- `ttsAdapter` — text → audio.
+- `agentToolAdapter` — registry of tools the LLM is allowed to call.
+- `receiptAdapter` — render and store the receipt.
+- `mpRcExportAdapter` — push structured cases to MP/RC tooling.
+- `mapAdapter` (NTH) — render map, geocode, route overlay.
+- `transportAdapter` (NTH) — Grab deep-link.
+- `notificationAdapter` (NTH) — in-app demo alert; SMS/push later.
 
-## MVP Persistence
+## Persistence
 
-Persistence is **Supabase Postgres**, accessed only through FastAPI's `supabase-py` client (`server/supabase_client.py`). Seed data ships as Supabase migrations under `supabase/migrations/`, not as in-app JSON.
-
-- Auth is shipped: magic-link via FastAPI proxy. The browser never imports or calls Supabase directly.
-- RLS is **not** user-scoped in MVP — auth-sensitive logic lives in FastAPI route handlers and Pydantic models. See `tech-stack.md` "Architecture rules".
-- localStorage is fine for UI mode and other ephemeral client-only state. Anything cross-device goes through FastAPI.
+- Cloudflare D1 is the single database. Schema driven by `data-contracts.md`.
+- Seed data ships as D1 migration files (`AgencyContact` directory, sample resources for the NTH map).
+- Cloudflare KV holds short-lived per-session state for multi-turn dialogues; expires on idle reset.
+- Cloudflare R2 holds receipt PDFs (and optional debug audio, retained only for the session).
 
 ## Security and Privacy
 
+- Anonymous by default. Identity capture is optional and only when needed; never NRIC.
 - No medical diagnosis fields.
-- No permanent route traces.
-- No secrets in frontend code.
-- Consent required before safety ping session.
-- Photos should avoid identifiable people.
+- No permanent voice retention. Audio is used for STT only; transcripts are retained for the case + receipt; KV session is cleared on idle reset.
+- Consent banner before the first listening session.
+- No secrets in frontend code. All AI keys live in `wrangler secret`.
 
 ## System Extension Points
 
-- Agency dispatch can consume hazard export from FastAPI.
-- Grab partnership can replace the deep-link adapter.
-- Push/SMS can replace the demo notification adapter.
-- Street View/AR can become a route preview adapter later.
-- LangChain + Anthropic plug into FastAPI route handlers when AI features are picked up (see `tech-stack.md`).
+- Real agency integrations replace `simulateBooking` once partnerships are signed.
+- NGO linking layered onto the escalation flow with optional identity capture.
+- Browser Web Speech fallback can be promoted from emergency safety net to a primary path for English-only requests if the network is unreliable.
+- Map / wheelchair routing is already adapter-shaped; promote from NTH to MVP+1.
+- MP/RC export channel can move from CSV to webhook as soon as a real MP volunteer dashboard is identified.

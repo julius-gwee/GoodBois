@@ -1,8 +1,164 @@
 # Data Contracts
 
-These contracts are the shared language across all workstreams. Implementation can use TypeScript, JSON, or another typed format, but field names should stay stable.
+These contracts are the shared language across all workstreams. Implementation can use TypeScript (frontend + Worker), JSON, or another typed format, but field names should stay stable.
 
-## Resource
+The MVP entities below live in **Cloudflare D1**. Transient session context lives in **Cloudflare KV**. Receipt PDFs (and optional debug audio) live in **Cloudflare R2**.
+
+## KioskSession (MVP)
+
+```ts
+type KioskSession = {
+  id: string;                       // UUID
+  kioskId: string;                  // physical kiosk identifier (block + unit code, or "demo-laptop")
+  userLanguage: string;             // BCP-47 e.g. "zh-Hans", "nan-Hant" (Hokkien), "en"
+  startedAt: string;                // ISO 8601
+  endedAt?: string;
+  outcome: "signposted" | "booked" | "escalated" | "abandoned" | "failed";
+  caseId?: string;                  // populated if outcome = escalated
+  receiptId?: string;               // populated if a receipt was generated
+};
+```
+
+## Utterance (MVP)
+
+```ts
+type UtteranceRole = "user" | "kiosk";
+type UtteranceMode = "voice" | "touch";
+
+type Utterance = {
+  id: string;
+  sessionId: string;                // FK → KioskSession.id
+  role: UtteranceRole;
+  mode: UtteranceMode;
+  textOriginal: string;             // raw user-language text (or kiosk-language response)
+  textEnglish?: string;             // post-translation; null if no translation needed
+  language: string;                 // BCP-47
+  spokenAt: string;                 // ISO 8601
+};
+```
+
+## TriageResult (MVP)
+
+```ts
+type TriageOutcome =
+  | "signpost"
+  | "find_nearby"
+  | "simulate_booking"
+  | "ask_followup"
+  | "escalate"
+  | "out_of_scope";
+
+type TriageResult = {
+  id: string;
+  sessionId: string;                // FK → KioskSession.id
+  outcome: TriageOutcome;
+  confidence: "high" | "medium" | "low";
+  selectedToolName?: string;        // null if outcome = ask_followup or out_of_scope
+  selectedAgencyKey?: string;       // FK → AgencyContact.key, when relevant
+  followupQuestion?: string;        // populated only when outcome = ask_followup
+  reasoningSummary: string;         // short LLM rationale, in English
+  createdAt: string;
+};
+```
+
+## ToolInvocation (MVP)
+
+```ts
+type ToolInvocation = {
+  id: string;
+  sessionId: string;                // FK → KioskSession.id
+  toolName: string;                 // e.g. "signpost", "findNearby", "simulateBooking", "generateReceipt", "escalateToMpRc"
+  argumentsJson: string;            // serialized tool arguments
+  resultJson: string;               // serialized tool result
+  startedAt: string;
+  completedAt: string;
+  success: boolean;
+  errorMessage?: string;
+};
+```
+
+## AgencyContact (MVP)
+
+```ts
+type AgencyCategory =
+  | "housing"
+  | "transport"
+  | "healthcare"
+  | "social_services"
+  | "legal"
+  | "financial_assistance"
+  | "elderly_activity"
+  | "digital_help"
+  | "mp_meet_the_people"
+  | "rc_visit"
+  | "other";
+
+type AgencyContact = {
+  key: string;                      // stable slug, e.g. "hdb_essential_services"
+  name: string;
+  hotline?: string;
+  address?: string;
+  url?: string;
+  openingHours?: string;
+  category: AgencyCategory;
+  multilingualBlurb: Record<string, string>; // BCP-47 → blurb
+  active: boolean;                  // false hides it from triage tools
+  source: "seed" | "partner" | "official";
+  updatedAt: string;
+};
+```
+
+## Case — escalation to MP/RC (MVP)
+
+```ts
+type Case = {
+  id: string;                       // human-friendly e.g. "GBC-20260509-001"
+  sessionId: string;                // FK → KioskSession.id
+  language: string;                 // BCP-47 of the original conversation
+  summaryEnglish: string;           // LLM-generated, ≤300 chars
+  summaryUserLanguage?: string;     // translated copy, optional for kiosk display
+  transcript: string;               // English transcript snippet for MP/RC volunteers
+  suggestedNextSteps: string[];     // LLM-generated, allowlist-validated
+  residentBlock?: string;           // optional, only if user provided
+  residentUnit?: string;            // optional
+  residentNameAlias?: string;       // optional, NRIC never stored
+  kioskId: string;
+  status: "queued" | "exported" | "received" | "closed";
+  createdAt: string;
+  exportedAt?: string;
+  exportChannel?: "csv" | "webhook" | "email";
+};
+```
+
+## Receipt (MVP)
+
+```ts
+type Receipt = {
+  id: string;                       // human-friendly e.g. "GBR-20260509-001"
+  sessionId: string;                // FK → KioskSession.id
+  caseId?: string;                  // populated if linked to an escalation
+  language: string;                 // BCP-47 of the receipt copy
+  pdfUrl: string;                   // signed R2 URL
+  generatedAt: string;
+};
+```
+
+## BookingConfirmation (MVP — simulated for demo)
+
+```ts
+type BookingConfirmation = {
+  agencyKey: string;                // FK → AgencyContact.key
+  slot: string;                     // ISO 8601 datetime range, e.g. "2026-05-12T10:00/PT30M"
+  reference: string;                // simulated reference number
+  notes?: string;                   // any caller instructions, in English
+};
+```
+
+---
+
+# NTH entities (build only after MVP is solid)
+
+## Resource (NTH — resource discovery + wheelchair routing)
 
 ```ts
 type VerificationStatus = "verified" | "community_submitted" | "needs_recheck" | "unknown";
@@ -44,7 +200,7 @@ type Resource = {
 };
 ```
 
-## Resource Details
+## Resource Details (NTH)
 
 ```ts
 type ResourcePhoto = {
@@ -110,7 +266,7 @@ type WaitingSpotDetails = {
 };
 ```
 
-## Hazard Report
+## Hazard Report (NTH — low priority)
 
 ```ts
 type HazardType =
@@ -147,7 +303,7 @@ type HazardReport = {
 };
 ```
 
-## Route Safety Session
+## Route Safety Session (NTH — low priority)
 
 ```ts
 type RouteSafetySession = {
@@ -170,7 +326,7 @@ type RouteSafetySession = {
 };
 ```
 
-## Submission
+## Submission (NTH — low priority)
 
 ```ts
 type Submission = {
@@ -186,19 +342,35 @@ type Submission = {
 };
 ```
 
+---
+
 ## Export Requirements
 
-Hazard CSV columns:
+### MP/RC Case CSV (MVP)
+
+```csv
+id,createdAt,language,summaryEnglish,transcript,suggestedNextSteps,residentBlock,residentUnit,residentNameAlias,kioskId,status,sessionId
+```
+
+`suggestedNextSteps` is a `;`-separated list to keep CSV clean.
+
+### MP/RC Case JSON (MVP)
+
+Array of `Case`. Webhook payload per escalation: `{ "case": Case }`.
+
+### Hazard CSV (NTH)
 
 ```csv
 id,status,severity,hazardType,description,latitude,longitude,locationDescription,resourceId,routeSegmentId,reportedByRole,reportedAt,reviewedByRole,reviewedAt,expectedEndAt
 ```
 
-Hazard JSON should be an array of `HazardReport`.
+Hazard JSON: array of `HazardReport`.
 
-## Date and Coordinate Rules
+## Date, Coordinate, Language, Identity Rules
 
 - Dates use ISO 8601 strings.
 - Coordinates use WGS84 latitude/longitude.
+- Languages use BCP-47 tags (e.g. `en`, `zh-Hans`, `nan-Hant` for Hokkien). Final tag list owned by voice-agent research.
 - Keep OneMap or Google provider references separate from canonical coordinates.
-- Do not store medical diagnosis or full route traces in MVP data.
+- Do not store medical diagnosis or full route traces.
+- Do not store NRIC. Identity capture is optional and aliased only.

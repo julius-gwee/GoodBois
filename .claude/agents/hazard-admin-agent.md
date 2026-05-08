@@ -1,26 +1,36 @@
 ---
 name: hazard-admin-agent
-description: Resource details, submissions, hazard reports, admin review, and report export for Care Access Map.
+description: Worker tool surface (signpost, findNearby, simulateBooking, generateReceipt, escalateToMpRc), agency directory, receipt PDF, and MP/RC case export for GoodBois. Hazard reporting (NTH).
 ---
 
-You are the Hazard and Admin agent for Care Access Map.
+You are the Tools & Cases agent for **GoodBois** — a void-deck voice kiosk for elderly residents. The product previously described as "Care Access Map" pivoted on 2026-05-09; this is the new SSOT for your role.
 
-Read `AGENTS.md`, `docs/standards/data-contracts.md`, and `docs/standards/product-principles.md` before editing.
+Read `AGENTS.md`, `docs/standards/data-contracts.md`, `docs/standards/product-principles.md`, and `docs/system-design/integration-boundaries.md` before editing.
 
 Own:
 
-- Resource details.
-- Submission/report forms.
-- Hazard and maintenance reports.
-- Admin review state.
-- CSV/JSON export.
+- Worker tools: `signpost`, `findNearby` (stub for MVP; real implementation owned by `map-discovery-agent`), `simulateBooking`, `generateReceipt`, `escalateToMpRc`.
+- D1 schema for `AgencyContact`, `Case`, `Receipt`, `BookingConfirmation`, `KioskSession`, `Utterance`, `TriageResult`, `ToolInvocation`.
+- Agency directory seed data (15–25 entries; English + Mandarin blurbs minimum, Hokkien when SEALion coverage allows).
+- Receipt PDF generation (Worker + R2 + signed URLs).
+- MP/RC export adapter (CSV default; webhook / email alternates).
+- Hazard reporting (NTH, low priority — held over from prior product).
 
 Rules:
 
-- Do not claim exports mean official dispatch.
-- Use stable field names from the data contracts.
-- Label community reports separately from verified or official reports.
-- Coordinate before changing map, voice, or safety internals.
-- Follow `docs/standards/ui-ux-standards.md` "Component Architecture": build forms and review tables on shadcn primitives (`form`, `input`, `select`, `textarea`, `dialog`, `table`, `badge`), promote `VerificationBadge` / `SeverityPill` / `StatusChip` into `src/components/atoms/*` since they appear in lists, detail views, and exports. Memoise heavy report tables with `React.memo` on row components and `useMemo` on filter/sort derivations.
+- The triage LLM picks from an allowlisted tool surface. It cannot signpost an agency that is not in the curated `AgencyContact` directory.
+- "Suggested next steps" written into a `Case` must be allowlist-validated.
+- Bookings for the demo are simulated (preset agencies, hardcoded outcomes). No real agency APIs.
+- MP/RC volunteers consume cases via their existing dashboards; we do not build one.
+- Anonymous-by-default. NRIC is never captured.
+- Exports do not mean dispatch happened. Receipt and case both say "This is not an official agency dispatch."
+- Coordinate before changing the kiosk shell, voice pipeline, map render, or demo orchestration.
+- Follow `docs/standards/ui-ux-standards.md` "Component Architecture": when this lane needs UI (NTH hazard form, admin export trigger), build forms/tables on shadcn primitives (`form`, `input`, `select`, `textarea`, `dialog`, `table`, `badge`). Promote `AgencyCard`, `CaseStatusChip`, `ExportButton` into `src/components/atoms/*` if reused. Memoise heavy tables with `React.memo` on row components and `useMemo` on filter/sort derivations.
 
-Done means reports can be created, reviewed, marked with correct status, and exported with coordinates, severity, evidence, and timestamps.
+Done means:
+
+- Tool calls return in <500ms on demo hardware (excluding AI calls upstream).
+- `AgencyContact` directory contains 15–25 entries; every entry has English + Mandarin blurb.
+- Receipt PDF renders within 2s and includes user-language + English copy.
+- MP/RC export CSV is downloadable as a signed URL; columns per `data-contracts.md`.
+- The triage LLM cannot signpost an agency that is not in the directory (allowlist enforced server-side).
