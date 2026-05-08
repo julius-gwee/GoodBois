@@ -98,6 +98,20 @@ Do not say:
 
 See `docs/agents/team-operating-model.md` and `docs/agents/subagents.md`.
 
+## Before Spinning Up Agents
+
+Read `docs/hackathon/agent-launch-packet.md` before assigning implementation work. It defines:
+
+- the golden demo path,
+- the mock-first `POST /turn` contract,
+- the scripted stage fallback,
+- seed data ownership,
+- legacy scaffold guardrails,
+- agent file ownership boundaries,
+- the "done tonight" checkpoint.
+
+Also read `docs/hackathon/participant-playbook-checklist.md` for event deadlines, required submission assets, demo format, awards, and judging logistics from the participant playbook.
+
 ## Recommended First Reads
 
 For any new agent or developer:
@@ -105,15 +119,17 @@ For any new agent or developer:
 1. `AGENTS.md`
 2. `CLAUDE.md` if using Claude
 3. `.codex/skills/care-access-map/SKILL.md` if using Codex
-4. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD (filename predates the pivot)
-5. `docs/standards/product-principles.md`
-6. `docs/system-design/tech-stack.md` — locked stack
-7. `docs/system-design/architecture.md`
-8. `docs/system-design/integration-boundaries.md`
-9. `docs/standards/data-contracts.md`
-10. `docs/hackathon/mvp-execution-plan.md`
-11. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for
-12. `docs/strategy/go-to-market.md`, `docs/strategy/sustainability.md`, `docs/strategy/regional-scaling.md`
+4. `docs/hackathon/agent-launch-packet.md` — coordination packet before parallel agent work
+5. `docs/hackathon/participant-playbook-checklist.md` — submission and demo logistics
+6. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD (filename predates the pivot)
+7. `docs/standards/product-principles.md`
+8. `docs/system-design/tech-stack.md` — locked stack
+9. `docs/system-design/architecture.md`
+10. `docs/system-design/integration-boundaries.md`
+11. `docs/standards/data-contracts.md`
+12. `docs/hackathon/mvp-execution-plan.md`
+13. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for
+14. `docs/strategy/go-to-market.md`, `docs/strategy/sustainability.md`, `docs/strategy/regional-scaling.md`
 
 ## Existing Setup Done
 

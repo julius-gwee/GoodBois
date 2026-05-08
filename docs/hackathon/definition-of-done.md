@@ -58,3 +58,15 @@ Integration is done when:
 ## Demo Done
 
 Demo is done when one person can run the full scenario without developer explanation or hidden setup, AND the scripted-fallback path is rehearsed and reachable.
+
+## Submission Done
+
+Submission is done when:
+
+- The app is coded and open-sourced.
+- The frontend and Worker are deployed or demonstrable with working local/deployed infrastructure.
+- A judge can see API behavior through terminal, IDE, or browser.
+- The pitch deck is exported as PDF.
+- The team can complete the 5-minute pitch and leave 5 minutes for Q&A.
+- The MVP form is submitted by Sunday 10 May 2026, 1:00 PM.
+- Audience-vote instructions for Ahgong/Ahma's Favourite are handled by Sunday 10 May 2026, 4:30 PM.

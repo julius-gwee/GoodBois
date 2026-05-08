@@ -15,6 +15,20 @@ A Mandarin-speaking resident asks the kiosk about a broken lift + missed dialysi
 
 A scripted demo path is rehearsed and bookmarked as a fallback if dialect STT misfires.
 
+## First Integration Checkpoint
+
+Before chasing real AI quality, get the smallest end-to-end skeleton working against the mock-first contract in `docs/hackathon/agent-launch-packet.md`:
+
+1. Kiosk UI loads.
+2. Mock `POST /turn` works.
+3. One real or seeded agency response renders.
+4. Escalation writes or simulates a `Case`.
+5. Receipt screen appears.
+6. CSV export exists.
+7. Demo script is rehearsable.
+
+This checkpoint is intentionally smaller than the full PRD. It lets every lane build against the same shape while Cloudflare, SEALion, D1, R2, and KV are still being wired.
+
 ## Build Order
 
 ### Phase 1: Shared Foundation
@@ -22,6 +36,7 @@ A scripted demo path is rehearsed and bookmarked as a fallback if dialect STT mi
 - Stand up Cloudflare account, Wrangler auth, free-tier verification.
 - Create D1 database; ship the schema migrations driven from `data-contracts.md`.
 - Seed `AgencyContact` directory (15–25 entries; English + Mandarin blurbs minimum).
+- Create the mock-first `POST /turn` response fixture and scripted demo fixture before wiring live AI.
 - Frontend scaffold: kiosk shell route + language picker + listening state placeholder (mock data).
 - Worker scaffold: orchestrator skeleton + tool registry + D1 client.
 - Decommission FastAPI / Supabase / magic-link auth (separate PR).
@@ -61,6 +76,17 @@ A scripted demo path is rehearsed and bookmarked as a fallback if dialect STT mi
 - **Multilingual blurbs:** at minimum English + Mandarin for every agency; Hokkien when SEALion's coverage allows.
 - **Resource (NTH):** 6–10 elderly-friendly services for the map demo (exercise corner, SAC, polyclinic).
 - **Demo cases:** one canned `Case` already in D1 for the MP/RC export demo.
+- **CSV fixture:** one exportable MP/RC case CSV matching `docs/standards/data-contracts.md`.
+- **Receipt fixture:** one bilingual receipt fixture for the golden demo path.
+
+## Agent Ownership Boundaries
+
+Default file ownership lives in `docs/hackathon/agent-launch-packet.md`. Use it unless the team explicitly reassigns work:
+
+- Dev A: kiosk frontend, `src/app`, `src/components/kiosk`, `src/components/atoms`, voice/touch client UX.
+- Dev B: Worker tools, D1 migrations, seed data, receipt, CSV export.
+- Dev C: NTH map adapter research/stub only until MVP is stable.
+- Dev D: demo docs, scripted fallback fixtures, pre-warm and pitch checklist.
 
 ## Demo Cut Rules
 
