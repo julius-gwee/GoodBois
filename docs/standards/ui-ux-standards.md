@@ -112,3 +112,50 @@ Avoid:
 - Overly rounded toy-like UI.
 - Huge hero sections.
 - Marketing copy on the first screen.
+
+## Component Architecture
+
+These rules apply to every workstream. Treat them as part of "done".
+
+### File layout
+
+- `src/components/ui/*` — shadcn primitives. Generated via `npx shadcn@latest add <name>`. Do not edit by hand unless customising the variant API; if you customise, leave a one-line comment naming the variant added.
+- `src/components/atoms/*` — small reusable wrappers around shadcn primitives or native elements (e.g. `IconLabelButton`, `VerificationBadge`, `ConfidenceChip`). Use atoms when the same control appears in 2+ places with the same shape.
+- `src/components/<feature>/*` — feature-scoped composites owned by one lane (e.g. `src/components/map/ResourceMarker.tsx`). Do not import another lane's feature components without coordinating.
+- One component per file. Filename matches the default export. Co-locate component-only types and styles.
+
+### Build with shadcn first
+
+- Reach for `src/components/ui` (shadcn) before writing custom Tailwind. Default primitives to add as needed: `button`, `input`, `label`, `card`, `dialog`, `sheet`, `badge`, `switch`, `slider`, `select`, `tabs`, `toast`, `tooltip`, `separator`, `skeleton`.
+- Add a primitive only when you actually need it. Do not bulk-install upfront.
+- Style via the primitive's variant API and `cn()` from `@/lib/utils`. Do not duplicate Tailwind class strings across files — promote to an atom.
+
+### Atoms
+
+- An atom exists when a control is used in 2+ places and carries product semantics (verification status, confidence, hazard severity, elderly-mode sizing). Atoms hide repeated class strings, enforce accessible labels, and centralise the elderly-mode sizing rules from this file.
+- Atoms must not own data fetching, navigation, or feature state. They take props and emit events.
+- Every interactive atom must accept (or forward) `aria-label` / `aria-labelledby` and a visible focus state. Touch targets stay ≥44px in elderly mode.
+
+### Refactor trigger
+
+When a page or feature component crosses ~150 lines, has 3+ distinct UI sections, or repeats the same JSX block twice, split it. Inline JSX with Tailwind is fine for one-offs; extract the moment it repeats.
+
+### Memoisation rules
+
+Default to no memoisation. Add it only when there is a measurable reason:
+
+- `useMemo` for derived data with non-trivial cost (filtering large resource lists, computing route corridors, parsing seed data).
+- `useCallback` only when the function is passed to a memoised child or used as a dependency of another hook.
+- `React.memo` for list-row components rendered in long maps/lists (resource cards, hazard markers).
+- Keep referentially stable objects (style configs, adapter instances, constant arrays) outside the component or in `useMemo` with `[]` deps.
+
+Do not wrap every callback in `useCallback`. Premature memoisation hides re-render bugs and adds noise.
+
+### Definition of done
+
+Before marking a UI task done:
+
+- No duplicated class-string blocks (>3 lines) across components in the same lane.
+- Every reusable control lives in `ui/` or `atoms/`, not pasted inline.
+- Memoisation is justified by a comment if the reason is not obvious.
+- Component renders correctly in elderly mode and at mobile width.

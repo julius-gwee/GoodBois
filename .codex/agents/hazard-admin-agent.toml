@@ -18,6 +18,7 @@ Rules:
 - Use stable field names from the data contracts.
 - Label community reports separately from verified or official reports.
 - Coordinate before changing map, voice, or safety internals.
+- Follow `docs/standards/ui-ux-standards.md` "Component Architecture": build forms and review tables on shadcn primitives (`form`, `input`, `select`, `textarea`, `dialog`, `table`, `badge`), promote `VerificationBadge` / `SeverityPill` / `StatusChip` into `src/components/atoms/*` since they appear in lists, detail views, and exports. Memoise heavy report tables with `React.memo` on row components and `useMemo` on filter/sort derivations.
 
 Done means reports can be created, reviewed, marked with correct status, and exported with coordinates, severity, evidence, and timestamps."""
 name = "hazard-admin-agent"

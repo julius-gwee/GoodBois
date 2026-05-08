@@ -2,6 +2,15 @@
 
 Use these as portable role prompts for Codex subagents, Claude subagents, or human task assignment.
 
+## Shared UI rule (applies to every subagent)
+
+All UI work follows `docs/standards/ui-ux-standards.md` "Component Architecture":
+
+- **shadcn first.** Build on `src/components/ui/*` primitives (add via `npx shadcn@latest add <name>`). Do not hand-roll a button/input/dialog/switch/slider.
+- **Atoms for repetition.** Anything used 2+ times with product semantics (verification, confidence, hazard severity, elderly-mode sizing) lives in `src/components/atoms/*`. Atoms own no feature state.
+- **One component per file.** Split when a file passes ~150 lines, has 3+ distinct sections, or repeats a JSX block. Feature components go under `src/components/<feature>/*`.
+- **Memoise with a reason.** `useMemo` for costly derivations, `useCallback` for memoised children/hook deps, `React.memo` for list rows. Hoist constants to module scope. No prophylactic memoisation.
+
 ## map-discovery-agent
 
 **Mission:** Build and protect the map/search/discovery lane.
