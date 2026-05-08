@@ -125,7 +125,8 @@ For any new agent or developer:
 5. `docs/standards/product-principles.md`
 6. `docs/standards/data-contracts.md`
 7. `docs/system-design/architecture.md`
-8. `docs/hackathon/mvp-execution-plan.md`
+8. `docs/system-design/tech-stack.md`
+9. `docs/hackathon/mvp-execution-plan.md`
 
 ## Existing Setup Done
 

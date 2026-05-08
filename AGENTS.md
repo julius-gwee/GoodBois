@@ -12,7 +12,8 @@ Read first:
 2. `docs/care-access-map-prd-and-backlog.md`
 3. `docs/standards/product-principles.md`
 4. `docs/system-design/architecture.md`
-5. `docs/agents/team-operating-model.md`
+5. `docs/system-design/tech-stack.md`
+6. `docs/agents/team-operating-model.md`
 
 ## Non-Negotiables
 
