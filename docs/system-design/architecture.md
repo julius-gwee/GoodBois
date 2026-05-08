@@ -4,20 +4,18 @@
 
 Build a hackathon MVP that can be implemented quickly with seeded data, while keeping the major future integrations replaceable: map provider, transport handoff, hazard routing, and notifications.
 
-## Recommended Stack
+## Stack
 
-If no app stack has been chosen yet, use:
+The stack is locked in `tech-stack.md`. In short:
 
-- Frontend: Next.js or Vite React with TypeScript.
-- Styling: Tailwind CSS or CSS modules.
-- Map rendering: Leaflet/MapLibre or the selected framework's map wrapper.
-- Data: local JSON seed data first.
-- State: simple React state or lightweight store.
-- Export: browser-generated CSV/JSON.
-- Voice: browser speech recognition where available, fallback to text.
-- Notifications: in-app/demo notification first.
-
-The MVP does not require a backend unless the team needs persistence across devices.
+- **Web:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind v4 + shadcn/ui in `src/`.
+- **API:** FastAPI + `supabase-py` + Pydantic v2 in `server/`. Owns all CRUD, business logic, and (planned) AI endpoints.
+- **Persistence:** Supabase Postgres. Seed data ships as Supabase migrations under `supabase/migrations/`, not in-app JSON.
+- **Auth:** Supabase magic-link, proxied through FastAPI. The browser never imports or calls Supabase directly.
+- **Map:** react-leaflet (planned) behind a `mapAdapter`, with OneMap tiles + Barrier-Free Access API.
+- **Voice:** browser Web Speech API + `SpeechSynthesis` (planned), with text/touch fallback.
+- **Export:** browser-generated CSV/JSON.
+- **Notifications:** in-app/demo notification first.
 
 ## Layered Design
 
@@ -27,13 +25,15 @@ flowchart TD
   Features["Feature modules: search, hazards, admin, safety, transport"]
   Domain["Domain contracts: Resource, HazardReport, RouteSafetySession"]
   Adapters["Adapters: map provider, voice, Grab handoff, export, notification"]
-  Seed["Seed/mock data"]
-  Future["Future services: agency dispatch, Grab API, auth, database"]
+  API["FastAPI (server/): CRUD, business logic, AI"]
+  DB["Supabase Postgres + Auth"]
+  Future["Future services: agency dispatch, Grab API, push/SMS"]
 
   UI --> Features
   Features --> Domain
   Features --> Adapters
-  Features --> Seed
+  Features --> API
+  API --> DB
   Adapters -. later .-> Future
 ```
 
@@ -105,13 +105,13 @@ Responsibilities:
 
 ## Data Flow
 
-1. Seed data loads resources, hazards, and demo route.
+1. Resources, hazards, and demo routes load from Supabase via FastAPI.
 2. Search/filter produces visible resources.
 3. Map/list render visible resources.
 4. Selecting a resource opens detail.
 5. User can share, open Grab handoff, report hazard, or start route safety.
-6. Hazard/admin state updates local app state.
-7. Export serializes reviewed hazard reports.
+6. Hazard reports and admin reviews persist via FastAPI to Supabase.
+7. Export serializes reviewed hazard reports from FastAPI as CSV/JSON.
 
 ## Adapter Boundaries
 
@@ -125,11 +125,11 @@ Keep these as replaceable modules:
 
 ## MVP Persistence
 
-Use local state and seeded JSON for speed. If persistence is needed:
+Persistence is **Supabase Postgres**, accessed only through FastAPI's `supabase-py` client (`server/supabase_client.py`). Seed data ships as Supabase migrations under `supabase/migrations/`, not as in-app JSON.
 
-- Use localStorage for UI mode and demo sessions.
-- Use mock in-memory admin state for judging.
-- Avoid adding auth/database unless the team has spare time.
+- Auth is shipped: magic-link via FastAPI proxy. The browser never imports or calls Supabase directly.
+- RLS is **not** user-scoped in MVP — auth-sensitive logic lives in FastAPI route handlers and Pydantic models. See `tech-stack.md` "Architecture rules".
+- localStorage is fine for UI mode and other ephemeral client-only state. Anything cross-device goes through FastAPI.
 
 ## Security and Privacy
 
@@ -141,8 +141,8 @@ Use local state and seeded JSON for speed. If persistence is needed:
 
 ## System Extension Points
 
-- Agency dispatch can consume hazard export.
-- Grab partnership can replace deep-link adapter.
-- Database can replace seed data.
-- Push/SMS can replace demo notification adapter.
+- Agency dispatch can consume hazard export from FastAPI.
+- Grab partnership can replace the deep-link adapter.
+- Push/SMS can replace the demo notification adapter.
 - Street View/AR can become a route preview adapter later.
+- LangChain + Anthropic plug into FastAPI route handlers when AI features are picked up (see `tech-stack.md`).
