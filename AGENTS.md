@@ -55,6 +55,16 @@ Use these ownership lanes unless the team explicitly changes them:
 - Add demo data deliberately: every feature needs visible seeded examples.
 - Use feature flags or mock adapters for incomplete external integrations.
 
+## UI Component Rules
+
+All UI work follows the "Component Architecture" section of `docs/standards/ui-ux-standards.md`. Summary every agent must respect:
+
+- Build on shadcn primitives in `src/components/ui/` (add via `npx shadcn@latest add <name>`). Do not roll your own button, input, dialog, switch, slider, etc. when shadcn covers it.
+- Extract anything reused 2+ times into an atom under `src/components/atoms/` (e.g. icon+label buttons, verification badges, confidence chips, hazard severity pills). Atoms own no feature state.
+- Split feature components when a file passes ~150 lines, has 3+ distinct sections, or repeats a JSX block. One component per file under `src/components/<feature>/`.
+- Memoise only with a reason: `useMemo` for costly derivations, `useCallback` for memoised children or hook deps, `React.memo` for list rows. Hoist constant objects/arrays/style configs to module scope instead of recreating per render.
+- Style via the primitive's variant API and `cn()` from `@/lib/utils`. If you find yourself duplicating a class string, you have an atom waiting to be extracted.
+
 ## Expected Verification
 
 Before saying a task is done:

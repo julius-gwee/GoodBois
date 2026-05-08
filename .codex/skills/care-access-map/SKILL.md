@@ -32,6 +32,15 @@ Use this skill for any product, design, code, data, demo, or documentation task 
 - Every MVP feature should be visible in the demo scenario.
 - Update `docs/standards/data-contracts.md` before changing shared object shapes.
 
+## UI Component Guardrails
+
+shadcn is installed (`src/components/ui/*`, `@/lib/utils` for `cn()`, neutral base color, lucide icons). Full rules: `docs/standards/ui-ux-standards.md` "Component Architecture". Summary:
+
+- Build on shadcn primitives. Add via `npx shadcn@latest add <name>`. Do not hand-roll button/input/dialog/switch/slider.
+- Put repeated controls (used 2+ times) in `src/components/atoms/*`; feature composites in `src/components/<feature>/*`. One component per file.
+- Memoise only with a reason: `useMemo` for costly derivations, `useCallback` for memoised children/hook deps, `React.memo` for list rows. Hoist constants to module scope.
+- Refactor trigger: split a file when it crosses ~150 lines, has 3+ sections, or repeats a JSX block.
+
 ## Task Start Checklist
 
 - Identify the workstream: map, admin, UX/voice, safety/demo, or shared.

@@ -18,6 +18,7 @@ Rules:
 - Store canonical coordinates as latitude/longitude.
 - Keep map provider logic behind an adapter.
 - Coordinate before changing admin, voice, or safety files.
+- Follow `docs/standards/ui-ux-standards.md` "Component Architecture": shadcn primitives first, atoms for anything repeated (resource markers, list-row chips, filter toggles), one component per file under `src/components/map/*`, memoise only with a reason (e.g. `React.memo` on list rows, `useMemo` for filtered/derived resource arrays).
 
 Done means map and list show the same filtered resources, hazards are visible with clear confidence language, and the flow works on mobile."""
 name = "map-discovery-agent"
