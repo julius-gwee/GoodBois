@@ -1,0 +1,22 @@
+name = "goodbois-worker"
+main = "src/index.ts"
+compatibility_date = "2026-05-09"
+
+# Copy this file to wrangler.toml during Worker setup.
+# Bindings are placeholders until the Cloudflare resources exist.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "goodbois"
+database_id = "replace-with-d1-id"
+
+[[kv_namespaces]]
+binding = "SESSION_KV"
+id = "replace-with-kv-id"
+
+[[r2_buckets]]
+binding = "RECEIPTS"
+bucket_name = "goodbois-receipts"
+
+[ai]
+binding = "AI"
