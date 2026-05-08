@@ -17,7 +17,28 @@ Read first:
 3. `docs/standards/product-principles.md`
 4. `docs/system-design/tech-stack.md`
 5. `docs/system-design/architecture.md`
-6. `docs/agents/team-operating-model.md`
+6. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for
+7. `docs/agents/team-operating-model.md`
+
+## Judging Criteria
+
+This is a hackathon project. The team is optimising for the published rubric:
+
+| Criterion | Weight |
+|---|---|
+| Problem-Solution Fit | 35% |
+| Scalability Across Cultures & Borders | 15% |
+| Long-term Sustainability | 15% |
+| Go-to-Market Strategy | 15% |
+| Innovation & Creativity | 10% |
+| Presentation & Storytelling | 10% |
+
+When in doubt about scope or polish, prioritise the highest-weight criterion the change affects. Strategy docs that back specific criteria live in `docs/strategy/`:
+
+- `docs/strategy/go-to-market.md` (GTM)
+- `docs/strategy/sustainability.md` (sustainability)
+- `docs/strategy/regional-scaling.md` (cross-border scalability)
+- `docs/strategy/judging-criteria-alignment.md` (cheat sheet for the demo + pitch)
 
 ## Non-Negotiables
 

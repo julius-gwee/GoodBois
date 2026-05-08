@@ -112,6 +112,8 @@ For any new agent or developer:
 8. `docs/system-design/integration-boundaries.md`
 9. `docs/standards/data-contracts.md`
 10. `docs/hackathon/mvp-execution-plan.md`
+11. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for
+12. `docs/strategy/go-to-market.md`, `docs/strategy/sustainability.md`, `docs/strategy/regional-scaling.md`
 
 ## Existing Setup Done
 

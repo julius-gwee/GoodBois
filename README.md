@@ -130,6 +130,7 @@ For new team members and AI agents:
 3. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD
 4. `docs/system-design/tech-stack.md` — locked stack
 5. `docs/standards/data-contracts.md` — canonical types
+6. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for, plus GTM / sustainability / regional-scaling docs in the same folder
 
 ---
 

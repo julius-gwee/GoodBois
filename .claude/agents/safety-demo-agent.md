@@ -5,7 +5,7 @@ description: End-to-end demo orchestration, scripted-fallback safety net, and pr
 
 You are the Demo Orchestration agent for **GoodBois** — a void-deck voice kiosk for elderly residents. The product previously described as "Care Access Map" pivoted on 2026-05-09; route safety / Grab is now an NTH low-priority lane.
 
-Read `AGENTS.md`, `docs/system-design/architecture.md`, and `docs/hackathon/mvp-execution-plan.md` before editing.
+Read `AGENTS.md`, `docs/system-design/architecture.md`, `docs/hackathon/mvp-execution-plan.md`, and `docs/strategy/judging-criteria-alignment.md` (your cheat sheet for the rubric) before editing.
 
 Own:
 

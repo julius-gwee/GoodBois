@@ -301,15 +301,21 @@ Held over from prior product. Build only after MVP is solid.
 
 ## 15. Pitch Structure
 
-**Opening:** "Mrs Tan is 78. She speaks Hokkien. Her lift broke. To get help, she queues at the MP session every Thursday. By the time she's seen, she has to re-explain in English to a volunteer who'll write it up by hand."
+The pitch maps 1:1 to the judging rubric. See `docs/strategy/judging-criteria-alignment.md` for which beat hits which criterion and what to cut if we run long.
 
-**Problem:** The eldercare ecosystem has hotlines and an MP system. Both assume the elderly user can navigate to the right one. Most can't.
+**Beat 1 — Mrs Tan (Problem-Solution Fit, 35%).** "Mrs Tan is 78. She speaks Hokkien. Her lift broke. To get help, she queues at the MP session every Thursday. By the time she's seen, she has to re-explain in English to a volunteer who'll write it up by hand."
 
-**Solution:** A void-deck kiosk that listens in Hokkien, figures out what's needed, points at the right hotline, and routes complex cases to MPs as structured cases. Volunteers walk into MP sessions with the gist already in hand.
+**Beat 2 — Live demo with dialect (Problem-Solution Fit + Innovation).** Mrs Tan speaks to the kiosk in Hokkien. The kiosk understands, asks one follow-up, and produces a structured signpost + escalation. Receipt PDF appears full-screen. The volunteer reads the case in 30 seconds, not 30 minutes.
 
-**Why now:** SG has Workers AI, D1, and SEALion as free-tier infrastructure. Dialect STT/TTS for SEA languages went from impossible to commodity in the past 18 months.
+**Beat 3 — Cross-border (Scalability, 15%).** SEALion is purpose-built for SEA. Agency directory is config, not code. Swap HDB → BPS, MPS → Posyandu Lansia. The same kiosk runs in Jakarta. (See `docs/strategy/regional-scaling.md`.)
 
-**Impact:** Frees grassroots volunteers from manual triage. Meets elderly residents where they already live.
+**Beat 4 — Sustainability (15%).** B2G — PA / MSF / HDB / GRC town councils. Grant-funded 5-kiosk pilot bridges to a B2G contract. Cost intuition: $5–10k per kiosk per year at pilot stage; <$1.5k variable cost at 50-kiosk scale. (See `docs/strategy/sustainability.md`.)
+
+**Beat 5 — Pilot sequence (GTM, 15%).** One mature HDB estate. 8-week pilot. We onboard RC volunteers, not residents. The MP volunteer team consumes structured cases via their existing dashboard, fed by our CSV. Success metrics: 100+ sessions, 15+ structured cases, qualitative volunteer-hours-saved. (See `docs/strategy/go-to-market.md`.)
+
+**Beat 6 — Callback to Mrs Tan (Storytelling, 10%).** Mrs Tan's receipt prints. The MP volunteer reads it on Thursday. Mrs Tan doesn't have to queue.
+
+**Q&A:** every team member knows which doc backs which answer. See the alignment doc.
 
 ## 16. Open Questions
 
