@@ -8,6 +8,9 @@ type VoiceAgentBlobProps = {
   ariaLabel: string;
   onActivate?: () => void;
   className?: string;
+  mode?: "idle" | "listening" | "thinking"; // default "idle"
+  position?: "center" | "bottom";            // default "center"
+  pulseToken?: number;                        // increment to trigger one listening pulse
 };
 
 // Three hand-tuned 5-petal silhouettes on a 200x200 viewBox, centered around (100,100).
@@ -25,17 +28,42 @@ export default function VoiceAgentBlob({
   ariaLabel,
   onActivate,
   className,
+  mode = "idle",
+  position = "center",
+  pulseToken,
 }: VoiceAgentBlobProps) {
   const reducedMotion = useReducedMotion();
   const [isPressing, setIsPressing] = useState(false);
+  const [listeningPulse, setListeningPulse] = useState(false);
   const gradientId = useId();
   const pressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listeningPulseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (mode !== "listening" || pulseToken === undefined) return;
+    if (listeningPulseRef.current) clearTimeout(listeningPulseRef.current);
+    // Defer the state update out of the effect body to avoid cascading renders.
+    // setTimeout(..., 0) schedules it after the current render cycle, keeping
+    // the pulse visually immediate while satisfying the linter rule.
+    const onId = setTimeout(() => {
+      setListeningPulse(true);
+      listeningPulseRef.current = setTimeout(() => setListeningPulse(false), 200);
+    }, 0);
+    listeningPulseRef.current = onId;
+  }, [pulseToken, mode]);
+
+  useEffect(
+    () => () => {
+      if (listeningPulseRef.current) clearTimeout(listeningPulseRef.current);
+    },
+    []
+  );
 
   const handleClick = () => {
     if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
@@ -57,13 +85,39 @@ export default function VoiceAgentBlob({
     : [0.95, 1.05, 0.95];
   const breatheDuration = reducedMotion ? 12 : 4;
 
+  // Scale priority: pressing > listening pulse > breathing
+  const scaleAnimate = isPressing
+    ? [1.0, 1.07, 1.0]
+    : listeningPulse
+      ? [1.0, 1.08, 1.0]
+      : breatheKeyframes;
+
+  const scaleTransition = isPressing
+    ? { duration: PRESS_DURATION_MS / 1000, ease: "easeOut" as const }
+    : listeningPulse
+      ? { duration: 0.2, ease: "easeOut" as const }
+      : { duration: breatheDuration, repeat: Infinity, ease: "easeInOut" as const };
+
+  // Thinking adds a gentle wobble rotation on top
+  const rotateAnimate = mode === "thinking" ? [-8, 0, 8, 0] : 0;
+  const rotateTransition =
+    mode === "thinking"
+      ? { duration: 2, repeat: Infinity, ease: "easeInOut" as const }
+      : { duration: 0.4, ease: "easeOut" as const };
+
+  const sizeClasses =
+    position === "bottom"
+      ? "h-[20vmin] w-[20vmin]"
+      : "h-[40vmin] w-[40vmin]";
+
   return (
     <button
       type="button"
       aria-label={ariaLabel}
       onClick={handleClick}
       className={cn(
-        "group relative cursor-pointer rounded-full border-0 bg-transparent p-20",
+        "group relative cursor-pointer rounded-full border-0 bg-transparent",
+        position === "bottom" ? "p-6" : "p-20",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-sage/40 focus-visible:ring-offset-8 focus-visible:ring-offset-soft-cream",
         className
       )}
@@ -72,25 +126,13 @@ export default function VoiceAgentBlob({
       <motion.svg
         viewBox="0 0 200 200"
         className={cn(
-          "h-[40vmin] w-[40vmin]",
+          sizeClasses,
           "drop-shadow-[0_8px_24px_rgba(62,62,56,0.08)]",
           "transition-[filter] duration-150",
           "group-hover:drop-shadow-[0_8px_24px_rgba(62,62,56,0.16)]"
         )}
-        animate={
-          isPressing
-            ? { scale: [1.0, 1.07, 1.0] }
-            : { scale: breatheKeyframes }
-        }
-        transition={
-          isPressing
-            ? { duration: PRESS_DURATION_MS / 1000, ease: "easeOut" }
-            : {
-                duration: breatheDuration,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }
-        }
+        animate={{ scale: scaleAnimate, rotate: rotateAnimate }}
+        transition={{ scale: scaleTransition, rotate: rotateTransition }}
       >
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
