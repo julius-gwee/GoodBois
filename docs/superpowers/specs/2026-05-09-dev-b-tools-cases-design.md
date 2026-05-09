@@ -1,11 +1,24 @@
-# Dev B — Tools & Cases — Design Spec
+# Dev B — Tools & Cases — Design Spec  *(SUPERSEDED 2026-05-09)*
+
+> **This spec is superseded by `docs/refactor/2026-05-09-llm-turn-decision.md`** (landed the same day as a follow-up refactor).
+>
+> Headline differences:
+> - The four-dev lane split (Dev A / Dev B / etc.) was scrapped. Anyone can edit any file; there is no Dev B branch ownership.
+> - The tool allowlist is **three** tools, not four: `signpost`, `reportHazard` (new, demo stub), `generateReceipt`. `findNearby` and `escalateToMpRc` are removed (folded into `signpost` + receipt).
+> - The processing agent that this spec describes is **deprecated**. Tool dispatch lives in the orchestrator, walking `LLMTurnDecision.toolCalls[]` directly through the registry.
+> - The `Case` entity and CSV export route are out of scope for the MVP demo. The receipt is the handoff artifact; no separate export channel.
+> - Hazard reporting is promoted from NTH to a real `requestType` with a stubbed tool implementation.
+>
+> Read the refactor spec instead. The historical content below is preserved as context only.
+
+---
 
 **Branch:** `jacksonB/tools-and-cases`
 **Owner:** Dev B (`hazard-admin-agent` lane)
 **Date:** 2026-05-09
-**Status:** Approved for implementation
+**Status:** SUPERSEDED — see notice above.
 
-This document is the agreed scope, architecture, and verification plan for the Dev B branch. It is the source of truth for the implementation plan that follows. Anything not listed here is out of scope until the team agrees otherwise.
+This document was the agreed scope, architecture, and verification plan for the Dev B branch. It is no longer authoritative; see the superseding refactor spec above.
 
 ## 1. Scope
 

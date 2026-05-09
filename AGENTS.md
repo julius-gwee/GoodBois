@@ -1,24 +1,26 @@
 # GoodBois Agent Guide
 
-This file is the shared operating manual for Codex, Claude Code, and human developers working on the **GoodBois** elderly voice kiosk. (The product previously described as "Care Access Map" — the pivot to the kiosk landed on 2026-05-09.)
+This file is the shared operating manual for Codex, Claude Code, and human developers working on the **GoodBois** elderly voice kiosk. (The product previously described as "Care Access Map" — the pivot to the kiosk landed on 2026-05-09. The agent flow was rebuilt on the same date; see `docs/refactor/2026-05-09-llm-turn-decision.md`.)
 
 ## Project Context
 
 GoodBois is a voice-first kiosk installed at HDB void decks for less tech-savvy elderly residents who live alone or with limited family support, speak Mandarin / Hokkien / other SEA languages, and currently rely on weekly MP Meet-the-People sessions or RC visits to navigate basic government and social services.
 
-The kiosk **triages** their requests in their language, **signposts** them to the right agency / hotline / local resource, and **escalates complex cases** to MP/RC volunteers as structured cases. Unlike the AIC hotline or LifeSG app, the kiosk meets them where they already are, speaks dialect, runs 24/7, and routes complex cases with structured context.
+The kiosk **triages** their colloquially worded request, **signposts** them to the right agency / hotline / local resource, **files hazard reports** on their behalf, and **prints a receipt** with the structured who/what/when/where/why/how so they can hand it to a volunteer or counter staff without having to retell the story.
 
-**Demo:** runs on laptops, kiosk-style UI. No real printer (PDF receipt shown full-screen). Bookings simulated if time allows, otherwise scripted.
+Unlike the AIC hotline or LifeSG app, the kiosk meets them where they already are, speaks dialect, runs 24/7, and gives them an artifact to leave with.
 
-Read first:
+**Demo:** runs on laptops, kiosk-style UI. No real printer (HTML receipt shown full-screen). Hazard reporting is stubbed for the demo (no real downstream filing).
 
-1. `docs/START_HERE_FOR_NEW_AGENTS.md`
-2. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD (filename predates the pivot)
+## Read first
+
+1. `docs/refactor/2026-05-09-llm-turn-decision.md` — **canonical SSOT for the agent flow.** All other docs defer to it.
+2. `docs/START_HERE_FOR_NEW_AGENTS.md`
 3. `docs/standards/product-principles.md`
 4. `docs/system-design/tech-stack.md`
 5. `docs/system-design/architecture.md`
 6. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for
-7. `docs/agents/team-operating-model.md`
+7. `docs/standards/data-contracts.md`
 
 ## Judging Criteria
 
@@ -44,65 +46,69 @@ When in doubt about scope or polish, prioritise the highest-weight criterion the
 
 - Keep the MVP demoable. Prefer a working vertical slice over broad unfinished coverage.
 - Frontend never calls Workers AI or SEALion directly. All AI calls go through the orchestrator Worker.
-- Cloudflare D1 is the only database. No Supabase. No external Postgres. The old FastAPI + Supabase scaffold has been removed; do not reintroduce it.
-- Triage LLM picks from an allowlisted tool surface; it cannot fabricate hotlines or agencies.
-- Kiosk is anonymous by default. Identity capture is optional and only when needed; never NRIC.
-- Bookings are simulated for the demo. Do not call real agency APIs.
-- Multi-turn dialogue is bounded (≤3 follow-ups).
+- Cloudflare D1 is the only database. No Supabase. No external Postgres.
+- The main LLM picks from an allowlisted three-tool surface; it cannot fabricate hotlines or agencies.
+- Kiosk is anonymous by default. No NRIC. Identity capture (block/unit/alias) is optional and only when a tool needs it.
+- Bookings, real agency APIs, and real hazard filings are out of scope for the demo.
 - All voice flows have a text/touch fallback.
-- Keep `mapAdapter` boundary even though map is NTH.
-- Use elderly-friendly UI defaults: large text, clear labels, high contrast, low clutter, ≥44px touch targets, ≥120px language tiles.
-- Do not break another dev's work. Check status before editing and keep ownership boundaries tight.
+- Use elderly-friendly UI defaults: large text, clear labels, high contrast, low clutter, ≥44px touch targets.
+- Sessions are single-shot. KV state wipes after each terminal turn.
 
-## Four-Dev Workstreams
+## Agent Flow (locked 2026-05-09)
 
-Use these ownership lanes unless the team explicitly changes them. Subagent role files in `.claude/agents/*.md` mirror these.
+The full flow lives in `docs/refactor/2026-05-09-llm-turn-decision.md`. Summary:
 
-1. **Dev A — `accessibility-voice-agent` (voice + kiosk UX)**
-   - Backend (Worker): STT / TTS / translation / triage LLM clients; orchestrator; multi-turn KV session.
-   - Frontend: kiosk shell, language picker, listening state, transcript panel, response card, consent banner, idle reset.
-   - Multilingual UX + voice-agent research subtask (Cloudflare/SEALion language matrix; final model picks).
-   - Primary docs: `docs/system-design/tech-stack.md`, `docs/system-design/architecture.md`, `docs/system-design/integration-boundaries.md`, `docs/standards/ui-ux-standards.md`.
+```
+audio in
+  → STT (transcribe + language detect → { transcript_en, srcLang })
+  → Classifier LLM           (LLM call #1; loops on ask_followup)
+  → Main LLM                 (LLM call #2; emits LLMTurnDecision; mandatory generateReceipt)
+  → Tool dispatch            (orchestrator walks toolCalls[] in order)
+  → Translate kioskMessage   (English → srcLang)
+  → TTS                      (audio out in srcLang)
+  → Render receipt           (HTML, full-screen)
+  → Reset session
+```
 
-2. **Dev B — `hazard-admin-agent` (tools, cases, receipt, export)**
-   - Worker tools: `signpost`, `findNearby` (MVP stub), `simulateBooking`, `generateReceipt`, `escalateToMpRc`.
-   - Agency directory seed data; D1 schema for cases / receipts / agency / kiosk session entities.
-   - Receipt PDF generation (Worker + R2).
-   - MP/RC export adapter (CSV / webhook / email).
-   - Hazard reporting (NTH, low priority).
-   - Primary docs: `docs/standards/data-contracts.md`, `docs/standards/product-principles.md`, `docs/system-design/integration-boundaries.md`.
+### Main LLM output
 
-3. **Dev C — `map-discovery-agent` (NTH map + resource discovery)**
-   - `Resource` schema (NTH).
-   - `mapAdapter` (react-leaflet + OneMap tiles).
-   - Real `findNearby` implementation (replaces MVP stub).
-   - OneMap Barrier-Free Access API integration; wheelchair-friendly routing.
-   - Primary docs: `docs/system-design/architecture.md`, `docs/standards/data-contracts.md`, `docs/system-design/integration-boundaries.md`.
+```ts
+type LLMTurnDecision = {
+  requestType: "signpost" | "report_hazard" | "out_of_scope";
+  kioskMessage: string;       // English; spoken + chat bubble. NOT the receipt.
+  toolCalls: Array<           // generateReceipt is REQUIRED
+    | { name: "signpost";        args: { agencyKey: string } }
+    | { name: "reportHazard";    args: { category, location, description } }
+    | { name: "generateReceipt"; args: GenerateReceiptArgs }
+  >;
+};
+```
 
-4. **Dev D — `safety-demo-agent` (demo orchestration + route safety NTH)**
-   - End-to-end kiosk demo script.
-   - Scripted-fallback path (feature-flagged) as stage safety net.
-   - Pre-warm checklist for the pitch.
-   - Demo seed data covering every triage outcome.
-   - Route safety / Grab handoff (NTH, low priority).
-   - Primary docs: `docs/hackathon/mvp-execution-plan.md`, `docs/system-design/architecture.md`.
+### Tool allowlist (three tools, no exceptions)
+
+- `signpost(agencyKey)` — return an `AgencyContact` (incl. location/wayfinding).
+- `reportHazard(category, location, description)` — stub for demo; returns a reference ID.
+- `generateReceipt(args)` — render bilingual HTML; mandatory in every terminal turn.
+
+`findNearby`, `escalateToMpRc`, `simulateBooking` are **removed**. Wayfinding lives on the agency record; escalation is the receipt itself; bookings are out of scope.
 
 ## Working Rules
 
 - Start each task by stating which files you intend to touch.
-- Keep PRs/commits scoped to one workstream or one vertical slice.
-- If you need to touch another lane's file, coordinate in the team chat first.
-- Use typed/shared data contracts instead of inventing duplicate object shapes.
+- Keep PRs/commits scoped to one component or one vertical slice.
+- Use typed/shared data contracts instead of inventing duplicate object shapes — `docs/standards/data-contracts.md` is canonical.
 - Prefer seeded D1 data for hackathon speed, but structure it like production data.
 - Add demo data deliberately: every feature needs visible seeded examples.
 - Use feature flags or mock adapters for incomplete external integrations.
+
+There is no four-dev lane split. Anyone can touch anything; coordinate before changing schemas, the orchestrator stage list, or the tool allowlist.
 
 ## UI Component Rules
 
 All UI work follows the "Component Architecture" section of `docs/standards/ui-ux-standards.md`. Summary:
 
 - Build on shadcn primitives in `src/components/ui/` (add via `npx shadcn@latest add <name>`). Do not roll your own button, input, dialog, switch, slider, etc. when shadcn covers it.
-- Extract anything reused 2+ times into an atom under `src/components/atoms/` (e.g. language tile, listening pulse, agency card, receipt block). Atoms own no feature state.
+- Extract anything reused 2+ times into an atom under `src/components/atoms/` (e.g. listening pulse, agency card, receipt block). Atoms own no feature state.
 - Split feature components when a file passes ~150 lines, has 3+ distinct sections, or repeats a JSX block. One component per file under `src/components/<feature>/`.
 - Memoise only with a reason: `useMemo` for costly derivations, `useCallback` for memoised children or hook deps, `React.memo` for list rows. Hoist constant objects/arrays/style configs to module scope instead of recreating per render.
 - Style via the primitive's variant API and `cn()` from `@/lib/utils`. If you find yourself duplicating a class string, you have an atom waiting to be extracted.
@@ -115,7 +121,7 @@ Before saying a task is done:
 - Manually verify the kiosk flow on the demo laptop when UI is touched.
 - Confirm voice path works end-to-end (or that the touch fallback is wired) when AI is touched.
 - Confirm no secrets, API keys, or personal data were committed.
-- Update docs if behavior or data contracts changed.
+- Update docs if behavior or data contracts changed. The refactor spec at `docs/refactor/2026-05-09-llm-turn-decision.md` must always reflect the current intended flow.
 
 ## Commit Message Style
 
@@ -129,10 +135,10 @@ Use:
 
 Examples:
 
-- `feat: add hokkien STT path with Cloudflare Workers AI`
-- `feat: signpost tool returns AgencyContact from D1`
-- `docs: rewrite tech stack for Cloudflare migration`
-- `bugfix: reset kiosk session on idle timer expiry`
+- `feat: classifier agent emits ClassifierDecision`
+- `feat: orchestrator dispatches toolCalls in array order`
+- `docs: lock LLMTurnDecision schema in data-contracts`
+- `bugfix: STT adapter must return srcLang on Whisper path`
 
 ## Tool Compatibility Notes
 

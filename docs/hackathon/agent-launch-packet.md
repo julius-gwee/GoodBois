@@ -2,137 +2,128 @@
 
 Use this packet before spinning up Codex or Claude agents. It keeps parallel work pointed at the same demo path and prevents agents from extending the old scaffold.
 
+> **Canonical agent flow:** `docs/refactor/2026-05-09-llm-turn-decision.md`. Read it before this packet. The packet only adds rituals (mock-first, golden demo, fallback) on top of that spec.
+
 ## Build Rule
 
-Do not start by wiring real AI or Cloudflare services. Build against a mock-first integration contract so frontend, Worker tools, seed data, receipt, and demo fallback can move in parallel.
+Do not start by wiring real AI or Cloudflare services. Build against a mock-first integration contract so the kiosk frontend, the orchestrator, the classifier and main LLM agents, the tool registry, and the receipt renderer can all move in parallel.
 
 The app is done for the first integration checkpoint when:
 
 1. Kiosk UI loads.
 2. Mock `POST /turn` works.
-3. One seeded agency response renders.
-4. Escalation writes or simulates a `Case`.
-5. Receipt screen appears.
-6. CSV export exists.
-7. Runtime agent roles are visible in the Worker scaffold: inquiry, triage, processing.
+3. STT mock returns `{ transcript_en, srcLang }`.
+4. Classifier mock can either return a terminal `requestType` or a single `ask_followup`.
+5. Main LLM mock returns a complete `LLMTurnDecision` including `generateReceipt`.
+6. Tool registry has stubs for `signpost`, `reportHazard`, `generateReceipt`.
+7. Receipt screen appears.
 8. Demo script is rehearsable.
 
 ## Golden Demo Path
 
-This path is sacred until the MVP is stable. Every lane should make this flow stronger before broadening scope.
+The demo carries three scenarios that together prove the triage thesis. Each runs through the same six-stage pipeline.
 
-1. Resident taps Mandarin or Hokkien language tile.
-2. Resident says: "My lift is broken and I cannot go to the hospital for dialysis."
-3. Kiosk shows listening state and transcript.
-4. Worker translates to English and triages two needs: lift repair plus dialysis transport support.
-5. Kiosk asks one bounded follow-up: "Which block and floor?"
-6. Resident answers: "Block 123, level 8."
-7. Worker signposts HDB Essential Services and offers MP/RC escalation for transport-aid help.
-8. Resident accepts escalation.
-9. Worker creates a structured `Case`, fires CSV export, and generates a receipt.
-10. Kiosk shows bilingual receipt full-screen.
-11. Idle reset clears the session and returns to language picker.
+### Scenario 1 — Routing (signpost)
+
+> Mandarin-speaking resident: "Where do I get my eye checked?"
+
+- STT detects `zh-SG`.
+- Classifier asks one bounded follow-up ("polyclinic or hospital?"); resident says polyclinic; classifier emits `requestType: "signpost"`.
+- Main LLM emits a `kioskMessage` + `toolCalls = [signpost(polyclinic-bedok), generateReceipt(...)]`.
+- Receipt prints with Bedok Polyclinic address + things to bring (NRIC, Medisave card, current glasses).
+
+### Scenario 2 — Hazard report (reportHazard)
+
+> English-speaking resident: "The void deck light is broken, someone will fall."
+
+- STT detects `en-SG`.
+- Classifier emits `requestType: "report_hazard"` with no follow-up.
+- Main LLM emits `toolCalls = [reportHazard(...), signpost(town-council-east-coast), generateReceipt(...)]`.
+- `reportHazard` returns a stub `referenceId` (no D1 write in the demo).
+- Receipt prints with the reference ID + town council follow-up contact.
+
+### Scenario 3 — MP escalation (signpost + receipt as handoff)
+
+> Mandarin-speaking resident: "My wife and I keep fighting about the flat."
+
+- Classifier asks 2–3 bounded follow-ups ("ownership or living arrangement?", "have you spoken to anyone — lawyer or HDB?").
+- Classifier emits `requestType: "signpost"` once it has enough.
+- Main LLM emits `toolCalls = [signpost(mp-bedok-east), generateReceipt(...)]` with a full `caseSummary` so the volunteer doesn't need the retell.
+- Receipt prints with the MP's Meet-the-People session details + things to bring (marriage cert, HDB ownership docs, income statements).
+
+The full JSON for each scenario lives in `docs/refactor/2026-05-09-llm-turn-decision.md` §8.
 
 ## Mock-First `POST /turn` Contract
 
-Frontend and Worker lanes should share this shape immediately. The first implementation may return scripted fixture data; the real orchestrator must preserve the same response shape unless `docs/standards/data-contracts.md` is updated first.
+The frontend and Worker share this shape immediately. The first implementation may return scripted fixtures; the real orchestrator must preserve the same response shape unless `docs/standards/data-contracts.md` is updated first.
 
 ### Request
 
 ```ts
 type TurnRequest = {
-  sessionId?: string;
+  sessionId?: string;          // omit on first audio of a fresh session
   kioskId: string;
-  language: string;
-  mode: "voice" | "touch" | "scripted_demo";
-  text?: string;
-  audioBase64?: string;
-  scriptedStep?: "initial_request" | "followup_answer" | "accept_escalation";
+  audioBase64?: string;        // primary input
+  text?: string;               // touch-fallback input
 };
 ```
+
+The frontend does **not** send a `language` field. STT detects the source language from the audio.
 
 ### Response
 
 ```ts
 type TurnResponse = {
   sessionId: string;
-  state: "listening" | "thinking" | "followup" | "response" | "receipt" | "error";
-  transcript?: {
-    original: string;
-    english?: string;
-    language: string;
-  };
-  kioskMessage: {
-    original: string;
-    english: string;
-    language: string;
-  };
-  triage?: {
-    outcome:
-      | "signpost"
-      | "find_nearby"
-      | "simulate_booking"
-      | "ask_followup"
-      | "escalate"
-      | "out_of_scope";
-    confidence: "high" | "medium" | "low";
-    selectedToolName?: string;
-    selectedAgencyKey?: string;
-  };
-  agencyContact?: AgencyContact;
-  case?: Case;
-  receipt?: Receipt;
-  audioUrl?: string;
-  nextActions: Array<
-    | "listen"
-    | "type"
-    | "accept_escalation"
-    | "decline_escalation"
-    | "show_receipt"
-    | "reset"
-  >;
-  error?: {
-    code: string;
-    message: string;
-    fallbackAvailable: boolean;
-  };
+  state: "listening" | "followup" | "done";
+  transcript: { english: string; srcLang: string };
+  kioskMessage: string;        // already translated into srcLang
+  audioUrl?: string;           // signed URL for TTS audio
+  receiptUrl?: string;         // present only when state === "done"
+  error?: { code: string; message: string; fallbackAvailable: boolean };
 };
 ```
 
-## Runtime Agent Split
+`state` semantics:
 
-Use the whiteboard model inside the Worker without widening MVP scope:
+- `listening` — initial mic open before any STT result.
+- `followup` — classifier asked for clarification; mic re-opens.
+- `done` — terminal turn; receipt rendered; session resets on next idle tick.
 
-- `inquiry` asks bounded follow-up questions.
-- `triage` classifies the request and chooses the outcome/tool.
-- `processing` runs the allowed workflow through curated tools.
-- `orchestrator` owns session state, translation, agent routing, tool calls, and the final `TurnResponse`.
+### What the LLMs emit (visible only inside the Worker)
 
-Suggested Worker layout:
+The orchestrator consumes:
+
+- `STTResult { transcript_en, srcLang }`
+- `ClassifierDecision { requestType, followupPrompt? }`
+- `LLMTurnDecision { requestType, kioskMessage, toolCalls[] }`
+
+These are not part of the HTTP contract — they are the Worker-internal shapes. See `docs/standards/data-contracts.md` for full definitions.
+
+## Runtime Agent Layout
 
 ```text
-workers/src/orchestrator/
-workers/src/agents/inquiry/
-workers/src/agents/triage/
-workers/src/agents/processing/
-workers/src/tools/
+workers/src/orchestrator/        # six-stage turn handler
+workers/src/agents/classifier/   # LLM call #1 — owns the followup loop
+workers/src/agents/main/         # LLM call #2 — emits LLMTurnDecision
+workers/src/tools/               # signpost · reportHazard · generateReceipt + registry
+workers/src/ai/                  # STT (with lang detect), TTS, translate, llmAdapter
+workers/src/receipt/             # HTML render
+workers/src/db/                  # D1 access
 ```
 
-Do not turn this into a passport/general-application kiosk for the hackathon MVP. Complex application processing is future scope unless it is a scripted demo-safe booking stub.
+The previous `inquiry/`, `triage/`, and `processing/` agent folders are deprecated. See `docs/refactor/2026-05-09-llm-turn-decision.md` §6 + §10.
+
+Do not turn this into a passport / general-application kiosk for the hackathon MVP. Complex application processing is future scope.
 
 ## Stage Fallback Path
 
-The scripted demo path must use the same UI states and response contract as the real path. It may bypass STT, SEALion, and live LLM calls, but it must still show:
+The scripted demo path uses the same UI states and response contract as the real path. It may bypass STT, SEALion, and live LLM calls, but it must still render:
 
-- language picker
-- consent
-- listening/transcript
-- thinking
-- follow-up
-- response card
-- escalation
+- listening
+- followup (when applicable)
+- speaking
 - receipt
-- idle reset
 
 Feature flag recommendation:
 
@@ -158,54 +149,37 @@ Do not reintroduce these surfaces. GoodBois is anonymous by default, uses Cloudf
 
 ## Seed Data Ownership
 
-Dev B owns seed data unless the team explicitly reassigns it.
+Seed data is shared. Anyone can land it; coordinate before changing the agency directory schema.
 
 Minimum demo seed data:
 
-- 15-25 `AgencyContact` rows.
-- At least one agency per category in `docs/standards/data-contracts.md`.
-- English and Mandarin blurbs for every MVP agency.
-- Hokkien copy where the translation lane validates it.
-- One canned escalation case for the golden demo.
-- One CSV export fixture.
-- One receipt fixture.
+- 15–25 `AgencyContact` rows.
+- Coverage for: polyclinic, hospital, MP, RC, town council, hazard authorities (LTA / HDB / MOM).
+- English and Mandarin blurbs for every entry.
+- Hokkien copy where SEALion's coverage allows.
+- Three canned `LLMTurnDecision` fixtures, one per demo scenario above.
+- Three canned receipt fixtures — one per scenario.
 
 Seed data should be production-shaped even if values are demo-safe. Do not invent real hotlines unless verified and sourced.
-
-## Agent File Ownership
-
-Use these ownership lanes by default:
-
-| Lane | Agent | Owns | Avoids |
-|---|---|---|---|
-| Dev A | `accessibility-voice-agent` | `src/app`, `src/components/kiosk`, `src/components/atoms`, kiosk state, voice/touch client UX, AI adapters, orchestrator, inquiry/triage logic | D1 schema, receipt rendering, export adapter |
-| Dev B | `hazard-admin-agent` / Tools & Cases | `workers/src/tools`, `workers/src/agents/processing`, `workers/src/db`, D1 migrations, agency seeds, receipt/export tools | Kiosk visual layout except data contract needs |
-| Dev C | `map-discovery-agent` | `src/lib/mapAdapter` research/stub, NTH resource discovery notes | MVP kiosk flow unless explicitly asked |
-| Dev D | `safety-demo-agent` | `docs/hackathon`, demo script, scripted fallback fixtures, pre-warm checklist | Core Worker tool internals unless fixing demo breakage |
-
-When a lane must touch another lane's files, coordinate in team chat first and mention the reason in the PR description.
 
 ## Cut Rules
 
 If time is tight, keep:
 
-- language picker
-- mock/real `POST /turn`
-- one signpost path
-- one escalation path
-- receipt screen
-- CSV export
-- scripted fallback
+- STT with language detection (or a mock that returns srcLang).
+- Classifier loop with at least one ask_followup branch.
+- Main LLM emitting all three tool calls.
+- Receipt screen.
+- Scripted fallback.
 
 Cut:
 
-- real map render
-- real booking integrations
-- webhook/email export
-- hazard reporting
-- Grab handoff
-- route safety
-- extra languages beyond English and Mandarin
+- Real map render (NTH).
+- Real hazard filing (stub stays).
+- Webhook / email export channels.
+- Grab handoff.
+- Route safety.
+- Languages beyond English + Mandarin.
 
 ## Tech Stack Reminder
 
@@ -213,12 +187,11 @@ Cut:
 - Hosting: Cloudflare Pages.
 - Backend: Cloudflare Workers in TypeScript.
 - Worker framework: Hono by default.
-- AI: Workers AI for STT, TTS, and triage LLM.
+- AI: Workers AI for STT (with language detection), TTS, classifier LLM, main LLM.
 - Translation: SEALion.
 - Database: Cloudflare D1 only.
-- Session: Cloudflare KV.
-- Receipt storage: Cloudflare R2.
-- PDF: likely `@pdf-lib/pdf-lib`.
+- Session: Cloudflare KV (single-shot per turn).
+- Receipt: HTML, served by the Worker. R2 not used in MVP path.
 - NTH map: `react-leaflet` and OneMap behind `mapAdapter`.
 
 Supabase, FastAPI, magic-link auth, and the dashboard are removed legacy scaffold surfaces. Do not build new product work on them or re-add them.

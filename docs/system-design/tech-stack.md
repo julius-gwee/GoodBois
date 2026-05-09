@@ -8,15 +8,16 @@ A voice-first kiosk installed at HDB void decks. Less tech-savvy elderly residen
 
 ## What you can assume right now
 
-**Locked product decisions** (don't redesign these):
+**Locked product decisions** (don't redesign these — see `docs/refactor/2026-05-09-llm-turn-decision.md` for the canonical agent flow):
 
-- Pipeline: STT → SEALion translate (user lang → English) → LLM triage → orchestrator → tool/agent calls → SEALion translate (English → user lang) → TTS.
-- Multi-turn dialogue with bounded follow-ups (1–3, then resolve or escalate).
-- Anonymous by default. Identity (block/unit, alias) is optional and asked only when needed; full identity capture is a future extension tied to NGO linking. No NRIC ever.
-- Bookings for the demo are simulated if time allows, otherwise scripted (preset agencies, hardcoded outcomes). No real agency APIs.
-- MP/RC have their own dashboards. We **export** structured cases to them; we do not build a dashboard.
-- Receipt PDF is generated server-side (Cloudflare Worker), shown full-screen on the kiosk. Printer not used in the demo.
-- Multi-language target for MVP: English + Mandarin + Hokkien. Final language matrix owned by the voice-agent research subtask (Cloudflare/SEALion capability sweep).
+- Pipeline: STT (transcribe + detect srcLang) → Classifier LLM (loops on ask_followup) → Main LLM (emits LLMTurnDecision) → orchestrator dispatches toolCalls in array order → SEALion translate (English → srcLang) → TTS.
+- Two LLM calls per conversation: a cheap classifier (LLM #1) and a full-reasoning main LLM (LLM #2). The main LLM must emit `generateReceipt` in `toolCalls` or the orchestrator re-prompts.
+- STT is responsible for language detection. The frontend has no language tile.
+- Sessions are single-shot. KV state is wiped after every terminal turn.
+- Anonymous by default. Identity (block/unit, alias) is optional and asked only when needed. No NRIC ever.
+- Real agency APIs and real hazard filings are out of scope for the demo. `reportHazard` is a stub that returns a reference ID; `signpost` returns curated `AgencyContact` rows.
+- Receipt is **HTML**, served by the Worker, shown full-screen on the kiosk. No PDF, no R2 in the MVP path. Printer not used.
+- Multi-language target for MVP: English + Mandarin + Hokkien. Final language matrix owned by voice-research work.
 
 **Frontend** — installed and wired (use without checking):
 
@@ -35,14 +36,14 @@ A voice-first kiosk installed at HDB void decks. Less tech-savvy elderly residen
 
 **Backend** — Cloudflare-only:
 
-- Cloudflare Workers (TypeScript) — request handlers and orchestrator
-- Cloudflare Workers AI — STT, TTS, and the triage LLM
-- SEALion — SEA-language translation (and possibly triage; voice-agent + backend research decide jointly)
-- Cloudflare D1 — SQLite database (replaces Supabase Postgres)
-- Cloudflare R2 — object storage for receipt PDFs (and any debug audio)
-- Cloudflare KV — short-lived per-session state for multi-turn dialogues
+- Cloudflare Workers (TypeScript) — request handlers, orchestrator, classifier + main LLM agents
+- Cloudflare Workers AI — STT (with language detection), TTS, classifier LLM, main LLM
+- SEALion — SEA-language translation (and possibly the LLM hops if it ships tool-calling support)
+- Cloudflare D1 — SQLite database
+- Cloudflare R2 — object storage (currently unused in MVP; available for a post-demo PDF receipt)
+- Cloudflare KV — short-lived per-turn state for the classifier follow-up loop; wipes on every terminal turn
 - Cloudflare Pages — frontend hosting
-- PDF generation in a Worker (e.g., `@pdf-lib/pdf-lib`); final library owned by the receipt-lane research
+- HTML receipt rendered by the Worker. No PDF library required for MVP
 
 **Outstanding setup chores:**
 
@@ -58,21 +59,20 @@ Kiosk (Next.js on Cloudflare Pages)
    │
    │  audio in / text in (touch fallback)
    ▼
-Cloudflare Worker (orchestrator)
-   ├──► Workers AI: STT
-   ├──► SEALion (via Cloudflare): translate user lang → English
-   ├──► LLM (Workers AI): triage + tool selection
-   ├──► Orchestrator tool calls (allowlisted):
-   │     ├─ signpost(agencyKey)              → returns AgencyContact
-   │     ├─ findNearby(category)             → reads D1; map render is NTH
-   │     ├─ simulateBooking(agencyKey, slot) → returns BookingConfirmation
-   │     ├─ generateReceipt(case)            → renders PDF in Worker, stores in R2
-   │     └─ escalateToMpRc(case)             → writes Case in D1, fires export adapter
-   ├──► SEALion: translate English → user lang
-   ├──► Workers AI: TTS
+Cloudflare Worker (orchestrator) — six stages, see docs/refactor/2026-05-09-llm-turn-decision.md
+   ├──► Workers AI STT:    transcribe + detect language → { transcript_en, srcLang }
+   ├──► Classifier LLM:    requestType + (optional) followupPrompt   ── loops on ask_followup
+   ├──► Main LLM:          emits LLMTurnDecision { requestType, kioskMessage, toolCalls[] }
+   │                       (retry guard: must include generateReceipt)
+   ├──► Tool dispatch (registry, in array order):
+   │     ├─ signpost(agencyKey)                          → AgencyContact
+   │     ├─ reportHazard(category, location, description) → { referenceId, routedTo }    [stub]
+   │     └─ generateReceipt(args)                        → { receiptId, url }
+   ├──► SEALion: translate kioskMessage (English → srcLang)
+   ├──► Workers AI TTS
    │
    ▼
-audio out / response card / receipt PDF → kiosk
+audio out / full-screen HTML receipt → kiosk → reset session
 ```
 
 Non-negotiables for any new feature:
@@ -125,15 +125,17 @@ Non-negotiables for any new feature:
 
 **Worker owns:**
 
-- The orchestrator: STT → translate → triage → tool calls → translate → TTS.
-- Tool implementations: `signpost`, `findNearby`, `simulateBooking`, `generateReceipt`, `escalateToMpRc`.
-- D1 reads/writes for: `KioskSession`, `Utterance`, `TriageResult`, `ToolInvocation`, `Case`, `Receipt`, `AgencyContact`. NTH: `Resource`, `HazardReport`.
-- MP/RC export: serialise queued `Case` rows via the export adapter (default: signed CSV download URL).
+- The orchestrator: six stages per `docs/refactor/2026-05-09-llm-turn-decision.md`.
+- Two LLM agents: classifier (LLM #1, owns followup loop) and main (LLM #2, emits `LLMTurnDecision`).
+- Tool implementations: `signpost`, `reportHazard` (stub), `generateReceipt`.
+- D1 reads/writes for: `KioskSession`, `AgencyContact`, `Receipt`, `ToolInvocation`. Optional: `Utterance`. NTH: `Resource`, `HazardReport` (real persistence).
+- HTML receipt render at `GET /receipts/:id`.
 
 **Worker does NOT own:**
 
 - UI rendering — handled by Next.js on Cloudflare Pages.
 - Real agency integrations — out of MVP scope.
+- Real hazard filings — `reportHazard` is a demo stub. See refactor spec §7.
 - Payments, ride booking, medical anything.
 
 ## Data
@@ -150,10 +152,11 @@ Non-negotiables for any new feature:
 
 | Concern | Choice | Status | Notes |
 |---|---|---|---|
-| STT | Cloudflare Workers AI | not yet wired | Whisper-class model; final pick by voice-agent research |
-| Translation | SEALion via Cloudflare | not yet wired | Bidirectional |
-| Triage LLM | Workers AI hosted LLM | not yet wired | Tool/function calling required |
-| TTS | Workers AI TTS | not yet wired | Voice / persona owned by voice-agent research |
+| STT (with language detection) | Cloudflare Workers AI | not yet wired | Whisper-class model; must return both `transcript_en` and `srcLang` |
+| Translation | SEALion via Cloudflare | not yet wired | English ↔ user language for kioskMessage and receipt |
+| Classifier LLM (call #1) | Workers AI hosted LLM | not yet wired | Cheap / fast model; emits `ClassifierDecision` |
+| Main LLM (call #2) | Workers AI hosted LLM | not yet wired | Tool/function calling required; emits `LLMTurnDecision` |
+| TTS | Workers AI TTS | not yet wired | Voice locale = srcLang |
 | Languages (MVP target) | English, Mandarin, Hokkien | research | Final matrix owned by voice-agent research |
 | Languages (NTH) | Cantonese, Teochew, Malay, Tamil | research | Subject to SEALion + Workers AI coverage |
 | Browser fallback | Web Speech API + touch input | planned | Last-resort fallback if Cloudflare path fails on stage |
@@ -229,14 +232,15 @@ Do not reintroduce auth, Supabase, or FastAPI without a product/architecture red
 Defaults stand until consensus changes them. Code against the default in the meantime.
 
 1. **Worker HTTP framework.** Default: Hono. Alt: itty-router.
-   - Hono has best DX + middleware story for a multi-route Worker. itty-router is leaner if we end up with two endpoints.
+   - Hono has best DX + middleware story for a multi-route Worker. itty-router is leaner if the surface stays small.
 2. **Worker DB client.** Default: Drizzle ORM. Alt: raw `D1.prepare()`.
    - Drizzle gives schema migrations and shared TS types with the contract. Raw is fine if the schema stays tiny.
-3. **Triage LLM model.** Default: a Workers-AI-hosted model with tool-calling support. Alt: SEALion if it ships tool-calling.
-   - Owned by voice-agent + backend-lane research jointly.
-4. **PDF library.** Default: `@pdf-lib/pdf-lib`. Alt: a Workers-friendly fork of PDFKit, or an HTML→PDF service.
-   - Picked once we know whether we need bidirectional/CJK font support for the receipt copy.
-5. **MP/RC export channel.** Default: signed CSV download URL. Alt: webhook on case escalation; alt: email via Cloudflare Email Routing.
-   - Owned by whoever lands the export adapter.
+3. **STT model with language detection.** Default: Workers AI Whisper-class model that returns detected source language. Alt: stage detection (transcribe in source → detect → translate to English) inside the adapter if no single-call option exists.
+4. **Classifier LLM model.** Default: a small Workers-AI-hosted model. Latency over reasoning depth — this is a tagging step.
+5. **Main LLM model.** Default: a Workers-AI-hosted model with tool-calling support. Alt: SEALion if it ships tool-calling.
 6. **Front-end state management.** Default: URL params + React state + KV-backed session id. Alt: Zustand for kiosk session state.
    - Default is leaner. Zustand wins if cross-tree session state grows.
+
+Removed from this list (decisions locked):
+- ~~PDF library~~ — receipt is HTML for MVP; pick a PDF lib only if the post-demo PDF receipt is greenlit.
+- ~~MP/RC export channel~~ — escalation is now handled by `signpost` + `generateReceipt`; no separate export channel for MVP.

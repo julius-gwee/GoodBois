@@ -1,17 +1,7 @@
-# Inquiry Agent
+# Inquiry Agent — DEPRECATED
 
-Purpose: ask the smallest useful follow-up question when the resident's request is underspecified.
+This folder is being retired as part of the 2026-05-09 LLM-turn-decision refactor. See `docs/refactor/2026-05-09-llm-turn-decision.md`.
 
-Rules:
+The bounded follow-up loop now lives in the **classifier agent** (`workers/src/agents/classifier/`). When the classifier returns `requestType: "ask_followup"` with a `followupPrompt`, the orchestrator speaks the prompt back in `srcLang` and re-classifies the next utterance.
 
-- Maximum 3 follow-ups per session.
-- Ask for optional identity details only when escalation needs them.
-- Never ask for NRIC.
-- Keep questions short, plain, and translated back to the resident's language.
-- Prefer touch fallback if STT fails twice.
-
-Examples:
-
-- "Which block and floor?"
-- "Do you want me to record this for the RC or MP volunteer team?"
-- "Is this happening now, or are you asking for general advice?"
+Do not add new code under this path. Existing code here is scheduled for deletion as part of the rebuild listed in §10 of the refactor spec.

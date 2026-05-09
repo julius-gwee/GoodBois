@@ -1,15 +1,23 @@
-# Dev B — Tools & Cases — Implementation Plan
+# Dev B — Tools & Cases — Implementation Plan  *(SUPERSEDED 2026-05-09)*
+
+> **This implementation plan is superseded by `docs/refactor/2026-05-09-llm-turn-decision.md`.**
+>
+> The four-dev lane split was scrapped, the tool allowlist narrowed to three (`signpost`, `reportHazard`, `generateReceipt`), the processing agent was retired in favour of orchestrator-level tool dispatch, and the `Case` / CSV export surface was cut from MVP scope.
+>
+> Do not use this plan to drive new implementation work. The historical content below is preserved as context for any code that still resembles it on disk.
+
+---
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement Dev B's tools-and-cases lane for GoodBois — 4 allowlisted Worker tools, processing agent, in-memory repos with D1-ready interface seam, agency seed data, bilingual HTML receipt, and CSV export — on branch `jacksonB/tools-and-cases`.
+**Goal:** *(superseded — see notice above)* Implement Dev B's tools-and-cases lane for GoodBois — 4 allowlisted Worker tools, processing agent, in-memory repos with D1-ready interface seam, agency seed data, bilingual HTML receipt, and CSV export — on branch `jacksonB/tools-and-cases`.
 
-**Architecture:** Cloudflare Worker built with Hono. Tools sit behind a registry-enforced allowlist. A processing agent dispatches the right tool based on a triage outcome. Repository interfaces (in-memory now, D1 later) keep all data access behind a swappable seam. Receipts render as bilingual HTML at `GET /receipts/:id`; case CSV export at `GET /export/cases.csv` is gated by a static env auth marker.
+**Architecture:** *(superseded)* Cloudflare Worker built with Hono. Tools sit behind a registry-enforced allowlist. A processing agent dispatches the right tool based on a triage outcome. Repository interfaces (in-memory now, D1 later) keep all data access behind a swappable seam. Receipts render as bilingual HTML at `GET /receipts/:id`; case CSV export at `GET /export/cases.csv` is gated by a static env token.
 
 **Tech Stack:** TypeScript, Hono 4.x (Worker framework), Vitest (unit tests), `@cloudflare/workers-types`. No D1 / R2 / pdf-lib / SEALion / Workers AI in this branch.
 
-**Spec:** `docs/superpowers/specs/2026-05-09-dev-b-tools-cases-design.md`
-**Handoff doc for Dev A:** `docs/agents/handoff-dev-b-to-dev-a.md`
+**Spec:** `docs/superpowers/specs/2026-05-09-dev-b-tools-cases-design.md` *(also superseded)*
+**Handoff doc for Dev A:** `docs/agents/handoff-dev-b-to-dev-a.md` *(also superseded)*
 
 ---
 

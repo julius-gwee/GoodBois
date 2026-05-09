@@ -1,22 +1,30 @@
 # Runtime Agents
 
-GoodBois keeps the MVP narrow, but the Worker mental model follows the whiteboard's agent split:
+Two LLM-backed agents power the Worker. Both are described in detail in `docs/refactor/2026-05-09-llm-turn-decision.md` — read that first.
 
-1. `inquiry` asks bounded follow-up questions when the request is underspecified.
-2. `triage` classifies the request and picks an outcome.
-3. `processing` runs allowed workflows through the tool registry.
+```text
+classifier/   LLM call #1 — emits ClassifierDecision; owns the followup loop
+main/         LLM call #2 — emits the full LLMTurnDecision (kioskMessage + toolCalls[])
+```
 
-These are orchestration roles, not permission to build a broad "ask anything" government kiosk. The only MVP workflows are the allowlisted GoodBois tools in `workers/src/tools/`.
-
-The runtime flow is:
+The orchestrator runs them in sequence:
 
 ```text
 POST /turn
   -> orchestrator
-  -> inquiry agent when details are missing
-  -> triage agent for outcome/tool choice
-  -> processing agent for signpost/escalate/receipt/booking stub
+  -> STT (audio → { transcript_en, srcLang })
+  -> classifier agent     ── loops on ask_followup
+  -> main agent           (retry guard: must include generateReceipt)
+  -> tool registry dispatch
+  -> translate kioskMessage → srcLang
+  -> TTS
   -> TurnResponse
+  -> KV reset
 ```
 
-All agents must preserve the `TurnRequest` and `TurnResponse` contract in `workers/src/types/contracts.ts`.
+Both agents must preserve the schemas in `workers/src/types/contracts.ts`:
+
+- Classifier returns `ClassifierDecision`.
+- Main returns `LLMTurnDecision`.
+
+There is no longer a separate inquiry or processing agent. The followup loop lives in the classifier; tool dispatch lives in the orchestrator. The `inquiry/`, `triage/`, and `processing/` folders are **deprecated** — see their READMEs for migration notes.
