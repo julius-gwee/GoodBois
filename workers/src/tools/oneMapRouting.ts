@@ -142,12 +142,7 @@ async function fetchOneMapRoute(
     return undefined;
   }
 
-  const polyline = payload.route_geometry
-    ? decodePolyline(payload.route_geometry)
-    : [
-        { latitude: origin.latitude, longitude: origin.longitude },
-        { latitude: destination.latitude, longitude: destination.longitude },
-      ];
+  const polyline = buildRoutePolyline(payload, origin, destination);
   const durationMinutes = Math.max(1, Math.round((payload.route_summary.total_time ?? 60) / 60));
   const distanceMeters = Math.round(payload.route_summary.total_distance ?? estimateDistanceMeters(origin, destination));
 
@@ -279,6 +274,38 @@ function buildRouteSteps(
       latitude: latitude ?? destination.latitude,
       longitude: longitude ?? destination.longitude,
     };
+  });
+}
+
+function buildRoutePolyline(
+  payload: OneMapRouteResponse,
+  origin: typeof defaultKioskOrigin,
+  destination: Resource,
+): Coordinates[] {
+  if (payload.route_geometry) {
+    const decoded = decodePolyline(payload.route_geometry);
+    if (decoded.length > 1) {
+      return decoded;
+    }
+  }
+
+  const instructionCoordinates =
+    payload.route_instructions
+      ?.map((instruction) => parseInstructionCoordinate(instruction[3]))
+      .filter((coordinate): coordinate is [number, number] => coordinate[0] !== undefined && coordinate[1] !== undefined)
+      .map(([latitude, longitude]) => ({ latitude, longitude })) ?? [];
+
+  return dedupeCoordinates([
+    { latitude: origin.latitude, longitude: origin.longitude },
+    ...instructionCoordinates,
+    { latitude: destination.latitude, longitude: destination.longitude },
+  ]);
+}
+
+function dedupeCoordinates(points: Coordinates[]): Coordinates[] {
+  return points.filter((point, index) => {
+    const previous = points[index - 1];
+    return !previous || previous.latitude !== point.latitude || previous.longitude !== point.longitude;
   });
 }
 

@@ -107,4 +107,22 @@ describe("findRoutes OneMap integration", () => {
     });
     expect(routes[0].steps).toHaveLength(2);
   });
+
+  it("uses instruction coordinates when OneMap omits route geometry", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(oneMapPayload), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const routes = await findRoutes(destination, "walk", oneMapEnv);
+
+    expect(routes[0].polyline).toEqual([
+      { latitude: 1.287133554639335, longitude: 103.8070005167375 },
+      { latitude: 1.2869, longitude: 103.8082 },
+      { latitude: 1.28309, longitude: 103.81766 },
+      { latitude: 1.283092625749734, longitude: 103.8176672025981 },
+    ]);
+  });
 });

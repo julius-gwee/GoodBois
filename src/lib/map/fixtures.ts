@@ -342,6 +342,12 @@ export const demoResources: Resource[] = [
 
 function routeWaypoints(resource: Resource) {
   const origin = { latitude: kioskLocation.latitude, longitude: kioskLocation.longitude };
+  const bukitMerahCorridor = [
+    { latitude: 1.28702, longitude: 103.80762 },
+    { latitude: 1.28655, longitude: 103.8099 },
+    { latitude: 1.28595, longitude: 103.8124 },
+    { latitude: 1.28495, longitude: 103.8148 },
+  ];
 
   if (resource.id === "queenstown-smc-mps" || resource.id === "thong-kheng-aac-community-health-post" || resource.id === "hock-san-zone-rc") {
     return [
@@ -371,11 +377,43 @@ function routeWaypoints(resource: Resource) {
     ];
   }
 
+  if (
+    resource.id === "servicesg-bukit-merah" ||
+    resource.id === "tanjong-pagar-town-council" ||
+    resource.id === "bukit-merah-polyclinic"
+  ) {
+    return [
+      origin,
+      ...bukitMerahCorridor,
+      { latitude: 1.2842, longitude: 103.81625 },
+      { latitude: 1.28365, longitude: 103.81704 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  if (resource.id === "bukit-merah-community-centre") {
+    return [
+      origin,
+      ...bukitMerahCorridor.slice(0, 3),
+      { latitude: 1.28546, longitude: 103.81534 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  if (resource.id === "delta-sport-centre") {
+    return [
+      origin,
+      ...bukitMerahCorridor,
+      { latitude: 1.28435, longitude: 103.81735 },
+      { latitude: 1.2861, longitude: 103.81935 },
+      { latitude: 1.28835, longitude: 103.8201 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
   return [
     origin,
-    { latitude: 1.28695, longitude: 103.80835 },
-    { latitude: 1.28615, longitude: 103.81175 },
-    { latitude: 1.28455, longitude: 103.81565 },
+    ...bukitMerahCorridor,
     { latitude: resource.latitude, longitude: resource.longitude },
   ];
 }

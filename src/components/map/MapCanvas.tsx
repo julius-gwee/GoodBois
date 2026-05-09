@@ -108,7 +108,6 @@ export function MapCanvas({
             }}
           />
         ) : null}
-        <Marker position={[kioskLocation.latitude, kioskLocation.longitude]} icon={kioskIcon} />
         {resources.map((resource) => (
           <Marker
             key={resource.id}
@@ -118,6 +117,12 @@ export function MapCanvas({
             title={getLocalizedText(resource.name, language)}
           />
         ))}
+        <Marker
+          position={[kioskLocation.latitude, kioskLocation.longitude]}
+          icon={kioskIcon}
+          title={getLocalizedText(kioskLocation.label, language)}
+          zIndexOffset={2000}
+        />
       </MapContainer>
 
       <div className="pointer-events-none absolute bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-4 z-[500] rounded-full border border-stone-wash bg-soft-cream px-3 py-1 text-sm font-semibold text-deep-charcoal shadow">

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -153,10 +154,34 @@ test("route viewport points include origin, destination, and full polyline", () 
   assert.ok(points.length >= route.polyline.length + 2);
 });
 
+test("seeded ServiceSG route follows the Bukit Merah corridor", () => {
+  const route = getRouteForMode(demoRoutes["servicesg-bukit-merah"], "walk");
+
+  assert.ok(route.polyline.length >= 7);
+  assert.ok(
+    route.polyline.some(
+      (point) =>
+        Math.abs(point.latitude - 1.28495) < 0.00001 &&
+        Math.abs(point.longitude - 103.8148) < 0.00001,
+    ),
+  );
+});
+
 test("map viewport padding accounts for iPad bottom panels and desktop side panels", () => {
   const ipadDirections = getMapViewportPadding(834, 1194, "directions");
   const desktopDetails = getMapViewportPadding(1366, 1024, "details");
 
   assert.ok(ipadDirections.bottomRight[1] >= 700);
   assert.ok(desktopDetails.bottomRight[0] >= 500);
+});
+
+test("kiosk marker renders above colocated POI markers", () => {
+  const source = readFileSync(new URL("../../components/map/MapCanvas.tsx", import.meta.url), "utf8");
+  const resourcesIndex = source.indexOf("{resources.map((resource)");
+  const kioskIndex = source.indexOf("title={getLocalizedText(kioskLocation.label, language)}");
+
+  assert.ok(resourcesIndex > -1);
+  assert.ok(kioskIndex > -1);
+  assert.ok(resourcesIndex < kioskIndex);
+  assert.match(source, /zIndexOffset=\{2000\}/);
 });

@@ -33,6 +33,7 @@ describe("POST /routes", () => {
     expect(body.routes[0].origin.latitude).toBe(1.287133554639335);
     expect(body.routes[0].providerLabel).toMatch(/fixture fallback/i);
     expect(body.routes[0].polyline.length).toBeGreaterThan(3);
+    expect(body.routes[0].polyline).toContainEqual({ latitude: 1.28495, longitude: 103.8148 });
   });
 
   it("returns a controlled error for an unknown destination resource", async () => {
