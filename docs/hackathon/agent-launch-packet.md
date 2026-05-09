@@ -149,18 +149,28 @@ Do not reintroduce these surfaces. GoodBois is anonymous by default, uses Cloudf
 
 ## Seed Data Ownership
 
-Seed data is shared. Anyone can land it; coordinate before changing the agency directory schema.
+The agency directory and `AgencyContact` schema are owned by **Dev C** (`map-discovery-agent`). Receipt and hazard fixtures are owned by **Dev B** (`hazard-admin-agent`). Mock turn fixtures are owned by **Dev A** (`accessibility-voice-agent`). Coordinate via PR before changing schemas.
 
 Minimum demo seed data:
 
-- 15–25 `AgencyContact` rows.
-- Coverage for: polyclinic, hospital, MP, RC, town council, hazard authorities (LTA / HDB / MOM).
+- 15–25 `AgencyContact` rows *(Dev C)*.
+- Coverage for: polyclinic, hospital, MP, RC, town council, hazard authorities (LTA / HDB / MOM, NEA).
 - English and Mandarin blurbs for every entry.
 - Hokkien copy where SEALion's coverage allows.
-- Three canned `LLMTurnDecision` fixtures, one per demo scenario above.
-- Three canned receipt fixtures — one per scenario.
+- Three canned `LLMTurnDecision` fixtures, one per demo scenario *(Dev A)*.
+- Three canned receipt fixtures — one per scenario *(Dev B)*.
 
 Seed data should be production-shaped even if values are demo-safe. Do not invent real hotlines unless verified and sourced.
+
+## Lane Ownership Quick Reference
+
+| Lane | Agent | Owns | Avoids |
+|---|---|---|---|
+| Dev A | `accessibility-voice-agent` | `workers/src/orchestrator/*`, `workers/src/agents/{classifier,main}/*`, `workers/src/ai/*`, `workers/src/db/memory.ts`, `POST /turn`, kiosk frontend | `workers/src/tools/*` (calls via registry only), agency directory |
+| Dev B | `hazard-admin-agent` | `workers/src/tools/{generateReceipt,reportHazard}.ts`, `workers/src/receipt/*`, `GET /receipts/:id`, printer + email integration adapters, hazard category → authority map | `workers/src/orchestrator/*`, `workers/src/agents/*`, `signpost`, agency directory |
+| Dev C | `map-discovery-agent` | `workers/src/tools/signpost.ts`, `workers/src/db/seeds/agencies.ts`, `AgencyContact` schema (incl. wayfinding fields), NTH map render | Orchestrator, agents, receipt / hazard tools |
+
+When a lane must touch another lane's files, coordinate via PR mention. The shared files (`registry.ts`, `contracts.ts`) always need PR coordination.
 
 ## Cut Rules
 
@@ -168,15 +178,16 @@ If time is tight, keep:
 
 - STT with language detection (or a mock that returns srcLang).
 - Classifier loop with at least one ask_followup branch.
-- Main LLM emitting all three tool calls.
-- Receipt screen.
+- Main LLM emitting all three tool calls including `generateReceipt`.
+- Receipt screen (HTML render to kiosk).
 - Scripted fallback.
 
 Cut:
 
-- Real map render (NTH).
-- Real hazard filing (stub stays).
-- Webhook / email export channels.
+- Real map render (NTH, Dev C Phase 5).
+- Real printer dispatch (Dev B printer adapter can stay stubbed; the seam stays).
+- Real email send (Dev B email adapter can stay stubbed; the seam stays).
+- Real hazard filing downstream (stub `reportHazard` reference ID is fine).
 - Grab handoff.
 - Route safety.
 - Languages beyond English + Mandarin.

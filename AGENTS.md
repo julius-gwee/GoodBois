@@ -101,7 +101,30 @@ type LLMTurnDecision = {
 - Add demo data deliberately: every feature needs visible seeded examples.
 - Use feature flags or mock adapters for incomplete external integrations.
 
-There is no four-dev lane split. Anyone can touch anything; coordinate before changing schemas, the orchestrator stage list, or the tool allowlist.
+## Three-lane Dev Breakdown
+
+Lanes are ownership defaults — anyone can edit any file, but coordinate before crossing lanes. Full detail in `docs/refactor/2026-05-09-llm-turn-decision.md` §13.
+
+| Lane | Owns | Subagent file |
+|---|---|---|
+| **Dev A — Orchestration & pipeline** | Orchestrator, classifier + main LLM agents, STT / translate / TTS / llm adapters, `POST /turn` handler, KV session, frontend kiosk UX. **Does not touch tool implementations** — invokes them via `registry.invokeTool(...)` only. | `.claude/agents/accessibility-voice-agent.md` |
+| **Dev B — Receipt + Hazard tools + integrations** | `generateReceipt`, `reportHazard`, the receipt HTML render at `GET /receipts/:id`, and the **external integration adapters** for printer + email delivery. Demo may stub the external call; the seam must exist. | `.claude/agents/hazard-admin-agent.md` |
+| **Dev C — Routing tool + agency directory** | `signpost`, `AgencyContact` schema, agency directory seed (incl. MP / RC / town council / hazard-authority entries), location/wayfinding fields. NTH (Phase 5): map render layered on signpost. | `.claude/agents/map-discovery-agent.md` |
+
+**Shared:**
+
+- `workers/src/tools/registry.ts` — Dev A consumes; Dev B + Dev C register their tools. Edit with PR coordination.
+- `workers/src/types/contracts.ts` — schemas. Update `docs/standards/data-contracts.md` first.
+- Demo orchestration, scripted-fallback path, pre-warm checklist — shared; pick up when blocked.
+
+**Cross-lane order to keep everyone unblocked:**
+
+1. Dev C lands the agency directory seed + `signpost` returning a static `AgencyContact`.
+2. Dev B lands `generateReceipt` (stub URL) and `reportHazard` (stub reference ID).
+3. Dev A's orchestrator dispatches into the registry; mocks for the LLMs are fine.
+4. Dev A swaps mocks for real adapters, one at a time.
+5. Dev B layers printer/email adapters behind the stubs.
+6. Dev C extends `AgencyContact` with wayfinding fields once `signpost` consumers ask.
 
 ## UI Component Rules
 

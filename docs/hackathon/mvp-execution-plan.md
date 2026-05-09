@@ -65,15 +65,25 @@ This checkpoint is intentionally smaller than the full PRD. It lets the team bui
 
 ### Phase 2: Parallel Build
 
-The lane split is gone. Pick whichever component is on the critical path. Independent surfaces:
+Three lanes. Coordinate via PR for shared files (`registry.ts`, `contracts.ts`). Cross-lane order to keep everyone unblocked is in `docs/refactor/2026-05-09-llm-turn-decision.md` §13.
 
-- **STT adapter** returning `{ transcript_en, srcLang }`. Stub first.
-- **Classifier agent** + followup loop in the orchestrator.
-- **Main LLM agent** with `generateReceipt` retry guard.
-- **Tool registry** with three real tools; `reportHazard` stays stubbed.
-- **Receipt HTML render** with bilingual copy + things-to-bring checklist + case summary block.
-- **Translate + TTS** path on `kioskMessage`.
-- **Frontend states** (listening / followup / speaking / receipt) without language tile gating.
+- **Dev A (`accessibility-voice-agent`)** — Orchestration & pipeline:
+  - STT adapter returning `{ transcript_en, srcLang }`.
+  - Classifier agent + followup loop in the orchestrator.
+  - Main LLM agent with `generateReceipt` retry guard.
+  - Translate + TTS path on `kioskMessage`.
+  - `POST /turn` route handler + KV reset.
+  - Frontend states (listening / followup / speaking / receipt) without language tile gating.
+- **Dev B (`hazard-admin-agent`)** — Receipt + Hazard tools + integrations:
+  - `generateReceipt` tool + bilingual HTML render at `GET /receipts/:id`.
+  - `reportHazard` tool + hazard category → authority routing table.
+  - **Printer adapter** (POS / thermal / HTML-to-print) — typed seam; stub OK for demo.
+  - **Email adapter** (Cloudflare Email Routing or equivalent) — typed seam; stub OK for demo.
+- **Dev C (`map-discovery-agent`)** — Routing tool + agency directory:
+  - `signpost` tool with `AGENCY_NOT_ALLOWED` guard.
+  - Agency directory seed (15–25 entries; English + Mandarin blurbs minimum).
+  - Wayfinding fields (lat/long + walking direction hints) on `AgencyContact`.
+  - NTH (Phase 5): map render layered on signpost results.
 
 ### Phase 3: Integration
 

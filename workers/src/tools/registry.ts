@@ -1,8 +1,7 @@
 export const ALLOWLIST = [
   "signpost",
-  "findNearby",
+  "reportHazard",
   "generateReceipt",
-  "escalateToMpRc",
 ] as const;
 
 export type ToolName = (typeof ALLOWLIST)[number];
