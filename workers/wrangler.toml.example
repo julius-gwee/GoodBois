@@ -6,9 +6,9 @@ compatibility_date = "2026-05-09"
 # Bindings are placeholders until the Cloudflare resources exist.
 
 [[d1_databases]]
-binding        = "DB"
-database_name  = "goodbois"
-database_id    = "replace-with-d1-id"
+binding = "DB"
+database_name = "goodbois"
+database_id = "replace-with-d1-id"
 migrations_dir = "migrations"
 
 [[kv_namespaces]]
