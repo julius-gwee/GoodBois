@@ -19,12 +19,12 @@ shadcn is installed (`src/components/ui/*`, `@/lib/utils` for `cn()`, neutral ba
 
 ## Recommended Claude Subagents
 
-The four-dev lane split was scrapped on 2026-05-09. The subagents below are **topic helpers** — invoke them when work touches a particular surface area, not as ownership boundaries. Full role prompts live in `.claude/agents/*.md`; per-topic summaries in `docs/agents/subagents.md`.
+Three-lane dev breakdown. Lanes are ownership defaults — coordinate before crossing. Full role prompts live in `.claude/agents/*.md`; per-lane detail in `docs/agents/subagents.md`; canonical breakdown in `docs/refactor/2026-05-09-llm-turn-decision.md` §13.
 
-- `accessibility-voice-agent`: kiosk voice / AI pipeline (STT with language detection, classifier LLM, main LLM, TTS, translate), orchestrator (six-stage flow + retry guard + KV reset), kiosk frontend UX.
-- `hazard-admin-agent`: tool registry (`signpost`, `reportHazard` stub, `generateReceipt`), agency directory seed (incl. MP / RC / town council / hazard authorities), bilingual HTML receipt render.
-- `map-discovery-agent`: NTH lane — resource discovery + map render + OneMap Barrier-Free routing.
-- `safety-demo-agent`: end-to-end demo orchestration, scripted-fallback safety net, pre-warm checklist; route safety / Grab handoff (NTH low priority).
+- `accessibility-voice-agent` — **Dev A.** Orchestration & agent pipeline (STT with language detection, classifier LLM, main LLM, translate, TTS, KV reset, `POST /turn` handler) plus kiosk frontend UX. **Does not touch tool implementations** — invokes them via `registry.invokeTool(...)` only.
+- `hazard-admin-agent` — **Dev B.** `generateReceipt` + `reportHazard` tools, the bilingual HTML receipt render at `GET /receipts/:id`, and the **external integration adapters** (printer, email) for receipt and hazard delivery. Demo may stub the external call; the seam must exist.
+- `map-discovery-agent` — **Dev C.** `signpost` tool, agency directory seed (15–25 entries incl. MP / RC / town council / hazard authorities), `AgencyContact` schema with wayfinding fields. NTH (Phase 5): map render layered on signpost results.
+- `safety-demo-agent` — **topic helper, no fixed lane.** End-to-end demo orchestration, scripted-fallback safety net, pre-warm checklist. Picked up by whoever's blocked or near demo time.
 
 ## Claude Hook Policy
 

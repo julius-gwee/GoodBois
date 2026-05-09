@@ -1,10 +1,10 @@
 # Refactor — LLM Turn Decision Pipeline
 
-**Date:** 2026-05-09
+**Date:** 2026-05-09 (flow); dev breakdown added 2026-05-10
 **Status:** SSOT for the post-pivot agent flow. All other docs in this repo defer to this one.
-**Scope:** Backend orchestrator + tool surface + receipt + agent prompts. No frontend rewrites required, only the data the frontend consumes.
+**Scope:** Backend orchestrator + tool surface + receipt + agent prompts. Frontend changes are limited to dropping the language tile and aligning the kiosk states to the new pipeline.
 
-This document supersedes the four-lane "Dev A / Dev B / Dev C / Dev D" plan and the prior triage→processing dispatch model. There is now a single shared implementation; anyone can touch any file. Existing markdown referencing the old lanes is obsolete on contact and should be brought into line with this doc.
+This document supersedes the prior triage→processing dispatch model and the previous four-lane (A/B/C/D) plan. The current dev breakdown is **three lanes** (see §13). Existing markdown referencing the old four-lane structure is obsolete on contact and should be brought into line with this doc.
 
 ---
 
@@ -481,4 +481,78 @@ The following docs are obsolete on the dimensions noted and should be brought in
 - `workers/src/ai/README.md` — STT now returns `srcLang`; two LLM calls.
 - `docs/superpowers/specs/2026-05-09-dev-b-tools-cases-design.md` — superseded (predates this spec).
 - `docs/superpowers/plans/2026-05-09-dev-b-tools-and-cases.md` — superseded.
-- `CLAUDE.md` — drop Dev A/B/C/D phrasing in subagent recommendations.
+- `CLAUDE.md` — subagent recommendations updated to match the three lanes in §13.
+
+---
+
+## 13. Dev breakdown (added 2026-05-10)
+
+The "no lanes" position from earlier is replaced by a **three-lane split**. Lanes are ownership defaults — anyone can edit any file, but coordinate before crossing lanes.
+
+### Dev A — Orchestration & agent pipeline (no tools)
+
+Owns:
+
+- `workers/src/orchestrator/` — the six-stage flow + retry guard + KV reset.
+- `workers/src/agents/classifier/` — LLM call #1; owns the followup loop.
+- `workers/src/agents/main/` — LLM call #2; emits `LLMTurnDecision` with mandatory `generateReceipt`.
+- `workers/src/ai/sttAdapter.ts` — STT with language detection, returning `{ transcript_en, srcLang }`.
+- `workers/src/ai/llmAdapter.ts` — both `classify(...)` and `decide(...)` entry points.
+- `workers/src/ai/translateAdapter.ts` — English ↔ srcLang.
+- `workers/src/ai/ttsAdapter.ts` — TTS in srcLang.
+- `workers/src/db/memory.ts` (KV-backed turn state) and the `KioskSession` reads/writes from the orchestrator.
+- The `POST /turn` route handler.
+- Frontend kiosk UX in `src/` — listening / followup / speaking / receipt states; touch fallback; idle reset. (No language picker — STT detects.)
+
+Does NOT touch tool implementations. Calls them through `registry.invokeTool(name, args)` only.
+
+### Dev B — Receipt & Hazard tools + external integrations
+
+Owns:
+
+- `workers/src/tools/generateReceipt.ts` — the receipt tool.
+- `workers/src/tools/reportHazard.ts` — the hazard tool.
+- `workers/src/receipt/render.ts` and `GET /receipts/:id` — bilingual HTML render.
+- **External integration adapters** for receipt and hazard delivery:
+  - **Printer adapter** for the receipt (POS / thermal / HTML-to-print). Demo may stub the device call; the seam must exist.
+  - **Email adapter** (Cloudflare Email Routing or equivalent) for receipt emailing and hazard report dispatch to town councils / authorities. Demo may stub the send; the seam must exist.
+- D1 entries for `Receipt` and (post-stub) `HazardReport`.
+- Receipt fixtures and hazard category → routing-authority map.
+
+Tool contract: `signpost`, `reportHazard`, `generateReceipt` go through the shared `workers/src/tools/registry.ts` (see "Shared" below). Dev B registers the two tools they own.
+
+### Dev C — Routing tool (signpost) + agency directory
+
+Owns:
+
+- `workers/src/tools/signpost.ts` — the signpost tool. Includes the wayfinding fields (lat/long + walking direction hints) folded in from the retired `findNearby`.
+- `workers/src/db/seeds/agencies.ts` and the `AgencyContact` directory in D1 — 15–25 entries covering polyclinic, hospital, MP, RC, town council, hazard authorities (LTA / HDB / MOM).
+- The `AgencyContact` schema in `workers/src/types/contracts.ts` (Dev C is primary; coordinate cross-lane edits via the shared rule below).
+- (NTH, Phase 5) Map render layered on top of `signpost` results — reuse the agency record's lat/long.
+
+### Shared
+
+- `workers/src/tools/registry.ts` — the `invokeTool(name, args)` surface. Dev A consumes; Dev B + Dev C register tools into it. Edit with PR coordination.
+- `workers/src/types/contracts.ts` — schemas. The default rule still applies: update `docs/standards/data-contracts.md` first.
+- Demo orchestration / scripted-fallback / pre-warm checklist — no fixed owner. Shared, but typically picked up by whoever's blocked.
+
+### Default lane mapping for Claude/Codex subagents
+
+| Lane | Subagent file | Topic helper |
+|---|---|---|
+| Dev A | `.claude/agents/accessibility-voice-agent.md` | Orchestration, agents, STT/translate/TTS, KV, frontend UX |
+| Dev B | `.claude/agents/hazard-admin-agent.md` | Receipt + hazard tools + printer/email integration |
+| Dev C | `.claude/agents/map-discovery-agent.md` | Signpost tool, agency directory, NTH map overlay |
+
+`safety-demo-agent` stays available as a topic helper for end-to-end demo orchestration but is no longer a fixed lane.
+
+### Cross-lane integration order
+
+For two devs to be unblocked at all times, land in this order:
+
+1. Dev C lands the agency directory seed + `signpost` returning a static `AgencyContact`.
+2. Dev B lands `generateReceipt` returning a stub URL + `reportHazard` returning a stub reference ID.
+3. Dev A's orchestrator now has a real registry to dispatch into; mocks for the LLMs are sufficient.
+4. Dev A swaps mocks for real STT / classifier / main LLM / translate / TTS, one adapter at a time.
+5. Dev B layers in the printer / email adapters behind their stubs.
+6. Dev C extends `AgencyContact` with location/wayfinding fields once `signpost` callers ask for them.

@@ -1,10 +1,8 @@
 # Subagent Definitions
 
-> The four-dev lane split was scrapped on 2026-05-09. These subagent definitions are no longer ownership lanes — they are **topic helpers** that anyone can invoke when the work touches a particular surface area. Anyone can edit any file; coordinate before changing schemas or the orchestrator stage list.
+Three-lane dev breakdown — these subagents are **lane owners** by default, but anyone can edit any file with PR coordination. Full detail in `docs/refactor/2026-05-09-llm-turn-decision.md` §13.
 
 Use these as portable role prompts for Codex subagents, Claude subagents, or human task assignment.
-
-The canonical agent flow lives in `docs/refactor/2026-05-09-llm-turn-decision.md`. All subagents defer to it.
 
 ## Shared UI rule (applies to every subagent)
 
@@ -15,15 +13,18 @@ All UI work follows `docs/standards/ui-ux-standards.md` "Component Architecture"
 - **One component per file.** Split when a file passes ~150 lines, has 3+ distinct sections, or repeats a JSX block. Feature components go under `src/components/<feature>/*`.
 - **Memoise with a reason.** `useMemo` for costly derivations, `useCallback` for memoised children/hook deps, `React.memo` for list rows. Hoist constants to module scope. No prophylactic memoisation.
 
-## accessibility-voice-agent
+## accessibility-voice-agent — Dev A (Orchestration & pipeline)
 
-**Mission (topic helper):** voice / AI pipeline + classifier and main LLM agents + orchestrator + kiosk frontend UX.
+**Mission:** Build the orchestrator and the agent pipeline. Does **not** touch tool implementations.
 
-**Topics covered:**
+**Owns:**
 
-- Backend (Worker): STT (with language detection), translate, classifier agent (LLM #1), main LLM agent (LLM #2), TTS, orchestrator (six-stage flow), KV reset.
-- Frontend (Next.js): kiosk shell, listening / followup / speaking / receipt states, touch fallback, idle reset.
-- Multilingual UX: BCP-47 plumbing, receipt copy in user language. No language tile (STT detects).
+- Backend (Worker): orchestrator (six-stage flow + retry guard + KV reset), classifier agent (LLM #1, owns followup loop), main LLM agent (LLM #2, emits `LLMTurnDecision`), STT adapter (with language detection), translate adapter, TTS adapter, llmAdapter.
+- `POST /turn` route handler.
+- Frontend (Next.js): kiosk shell, listening / followup / speaking / receipt states. No language picker — STT detects.
+- Touch / text fallback path.
+
+**Calls tools** through `registry.invokeTool(name, args)` only. Does not import specific tool files.
 
 **Must read:**
 
@@ -34,23 +35,32 @@ All UI work follows `docs/standards/ui-ux-standards.md` "Component Architecture"
 - `docs/system-design/integration-boundaries.md`
 - `docs/standards/ui-ux-standards.md`
 
+**Do not touch without coordination:**
+
+- `workers/src/tools/*` — owned by Dev B / Dev C (the registry is shared).
+- The agency directory seed — owned by Dev C.
+
 **Done means:**
 
-- Each demo scenario (routing, hazard, MP escalation) survives end-to-end on the demo laptop.
+- All three demo scenarios survive end-to-end on the demo laptop.
 - Touch fallback works without any voice step.
 - Kiosk renders correctly at the demo resolution; idle reset clears KV.
 - BCP-47 language tags propagate from STT → orchestrator → translate → TTS → receipt.
 
-## hazard-admin-agent
+## hazard-admin-agent — Dev B (Receipt + Hazard tools + integrations)
 
-**Mission (topic helper):** tool registry + agency directory + HTML receipt render. Hazard reporting is part of the MVP demo, but the persistence layer is stubbed (see refactor spec §7).
+**Mission:** Build the `generateReceipt` and `reportHazard` tools and their external-delivery integrations (printer, email).
 
-**Topics covered:**
+**Owns:**
 
-- Tool registry: `signpost`, `reportHazard` (stub), `generateReceipt`. Single `invokeTool(name, args)` surface. Tools never throw.
-- D1 schema for `AgencyContact`, `Receipt`, `KioskSession`, optional `ToolInvocation`.
-- Agency directory seed (15–25 entries; polyclinic, hospital, MP, RC, town council, hazard authorities).
-- Receipt HTML render at `GET /receipts/:id`.
+- `workers/src/tools/generateReceipt.ts` — accepts `GenerateReceiptArgs`, persists a `Receipt` row, returns the `/receipts/:id` URL. Mandatory in every terminal turn.
+- `workers/src/tools/reportHazard.ts` — accepts `{ category, location, description }`, returns `{ referenceId, routedTo }`. Routes to the right authority (LTA / HDB / MOM / town council) by category.
+- `workers/src/receipt/render.ts` and `GET /receipts/:id` — bilingual HTML render with body, things-to-bring checklist, hydrated agency block, hazard reference.
+- **External integration adapters:**
+  - **Printer adapter** — POS / thermal / HTML-to-print. Demo may stub the device call; the seam must exist.
+  - **Email adapter** — Cloudflare Email Routing or equivalent for receipt-to-resident and hazard-report-to-authority. Demo may stub the send; the seam must exist.
+- `Receipt` and `HazardReport` schema entries in D1.
+- Hazard category → authority mapping table.
 
 **Must read:**
 
@@ -60,24 +70,30 @@ All UI work follows `docs/standards/ui-ux-standards.md` "Component Architecture"
 - `docs/standards/product-principles.md`
 - `docs/system-design/integration-boundaries.md`
 
+**Do not touch without coordination:**
+
+- Orchestrator, classifier, main LLM agent — owned by Dev A.
+- `signpost` and the agency directory — owned by Dev C.
+
 **Done means:**
 
 - Tool calls return in <500ms on demo hardware (excluding upstream LLM calls).
-- Agency directory contains 15–25 entries with English + Mandarin blurbs.
-- Receipt renders within 2s and includes user-language + English copy, things-to-bring checklist, and case summary.
-- The main LLM cannot signpost an agency that is not in the directory.
-- Every terminal turn in the demo produces a receipt URL.
+- Receipt renders within 2s and includes English + srcLang copy, things-to-bring checklist, and case summary.
+- Printer + email adapters expose a typed seam that the tools call; demo stubs are clearly logged.
+- Hazard category routing is deterministic and seeded.
+- The main LLM cannot signpost an agency that is not in the directory (registry rejects).
 
-## map-discovery-agent
+## map-discovery-agent — Dev C (Routing tool + agency directory)
 
-**Mission (topic helper):** NTH lane — resource discovery, map render, OneMap Barrier-Free wheelchair-friendly routing. Build only after MVP is solid.
+**Mission:** Build the `signpost` tool and own the agency directory + `AgencyContact` schema. NTH (Phase 5): map render.
 
-**Topics covered:**
+**Owns:**
 
-- `Resource` schema in D1 (NTH).
-- `mapAdapter` interface (react-leaflet + OneMap tiles).
-- Map render layered on top of a `signpost` result for routing scenarios — reuse the agency record's lat/long + walking direction fields.
-- OneMap Barrier-Free Access API integration.
+- `workers/src/tools/signpost.ts` — accepts `{ agencyKey }`, returns `{ agency: AgencyContact }`. Rejects unknown / inactive keys with `AGENCY_NOT_ALLOWED`.
+- `workers/src/db/seeds/agencies.ts` and the D1 directory — 15–25 entries across polyclinic, hospital, MP, RC, town council, hazard authorities.
+- `AgencyContact` schema in `workers/src/types/contracts.ts` (cross-lane edits via PR coordination).
+- Wayfinding fields on the agency record (lat/long + walking direction hints) — folded in from the retired `findNearby`.
+- (NTH) Map render layered on top of `signpost` results — reuse the agency record's lat/long. OneMap tiles + Barrier-Free routing behind `mapAdapter`.
 
 **Must read:**
 
@@ -87,16 +103,22 @@ All UI work follows `docs/standards/ui-ux-standards.md` "Component Architecture"
 - `docs/standards/data-contracts.md`
 - `docs/system-design/integration-boundaries.md`
 
+**Do not touch without coordination:**
+
+- Orchestrator, agents, AI adapters — owned by Dev A.
+- Receipt rendering, hazard tool, external delivery adapters — owned by Dev B (the receipt does hydrate from the agency directory at render time, but Dev C owns the directory shape).
+
 **Done means:**
 
-- Map renders inside the kiosk response card without breaking the listening flow.
-- Wheelchair-friendly polyline visible on the map for at least one demo route.
-- Coordinates are plain WGS84 latitude/longitude in shared types.
-- Voice pipeline still works if the map renderer is stripped out.
+- Agency directory contains 15–25 entries with English + Mandarin blurbs.
+- `signpost` returns a complete `AgencyContact` with wayfinding fields populated for routing scenarios.
+- Demo scenarios 1 (routing) and 3 (MP escalation) both signpost successfully.
+- (NTH, Phase 5) Map renders for at least one demo route without breaking the listening flow.
+- (NTH) Wheelchair-friendly polyline visible on the map for at least one demo route.
 
-## safety-demo-agent
+## safety-demo-agent — topic helper (no fixed lane)
 
-**Mission (topic helper):** end-to-end demo orchestration + scripted-fallback safety net + pre-warm checklist. Route safety / Grab handoff is NTH low priority.
+**Mission:** End-to-end demo orchestration + scripted-fallback safety net + pre-warm checklist. **Not a fixed lane** — picked up by whichever dev is blocked or near demo time.
 
 **Topics covered:**
 

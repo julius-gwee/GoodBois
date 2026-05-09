@@ -2,6 +2,17 @@
 
 The main LLM may only call tools registered here. Three tools, no exceptions. Full schemas live in `docs/refactor/2026-05-09-llm-turn-decision.md` §4 and `docs/standards/data-contracts.md`.
 
+## Lane ownership
+
+| Tool | Owner | Subagent |
+|---|---|---|
+| `signpost` | Dev C | `map-discovery-agent` |
+| `reportHazard` | Dev B | `hazard-admin-agent` |
+| `generateReceipt` | Dev B | `hazard-admin-agent` |
+| `registry.ts` | Shared | — (PR coordination required) |
+
+Dev A does not edit any of the files in this folder. Dev A only consumes through `registry.invokeTool(name, args)`.
+
 ## `signpost`
 
 ```ts
