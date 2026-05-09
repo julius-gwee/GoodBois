@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Accessibility } from "lucide-react";
+import { useUIStrings } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 import AccessibilitySheet from "./AccessibilitySheet";
 
@@ -12,6 +13,7 @@ type AccessibilityButtonProps = {
 export default function AccessibilityButton({
   className,
 }: AccessibilityButtonProps) {
+  const t = useUIStrings();
   const [open, setOpen] = useState(false);
 
   return (
@@ -19,7 +21,7 @@ export default function AccessibilityButton({
       <button
         type="button"
         aria-haspopup="dialog"
-        aria-label="Accessibility options"
+        aria-label={t.accessibilityOptions}
         onClick={() => setOpen(true)}
         className={cn(
           "flex h-11 w-11 items-center justify-center rounded-full",

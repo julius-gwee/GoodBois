@@ -1,6 +1,7 @@
 "use client";
 
 import TranscriptPanel from "@/components/atoms/TranscriptPanel";
+import { useUILang, useUIStrings } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 
 type ThinkingStateProps = {
@@ -14,6 +15,8 @@ export default function ThinkingState({
   onCancel,
   className,
 }: ThinkingStateProps) {
+  const t = useUIStrings();
+  const lang = useUILang();
   return (
     <div
       className={cn(
@@ -24,8 +27,8 @@ export default function ThinkingState({
       <TranscriptPanel transcript={transcript} isListening={false} />
 
       <div className="flex items-center gap-2">
-        <span className="text-base font-medium text-muted-stone">
-          Thinking · 正在思考
+        <span lang={lang} className="text-base font-medium text-muted-stone">
+          {t.thinking}
         </span>
         <span className="flex gap-1" aria-hidden="true">
           <span
@@ -46,13 +49,14 @@ export default function ThinkingState({
       <button
         type="button"
         onClick={onCancel}
+        lang={lang}
         className={cn(
           "rounded-full border border-stone-wash bg-soft-cream/80 px-6 py-3",
           "text-base font-medium text-body-gray hover:bg-deep-linen transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-sage/40 focus-visible:ring-offset-2 focus-visible:ring-offset-soft-cream"
         )}
       >
-        Cancel · 取消
+        {t.cancel}
       </button>
     </div>
   );
