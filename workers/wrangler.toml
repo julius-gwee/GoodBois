@@ -2,35 +2,43 @@ name = "goodboyes"
 main = "src/index.ts"
 compatibility_date = "2026-05-09"
 
-# Copy this file to wrangler.toml during Worker setup.
-# Bindings are placeholders until the Cloudflare resources exist.
-
-[[d1_databases]]
-binding = "DB"
-database_name = "goodbois"
-database_id = "replace-with-d1-id"
-
-[[kv_namespaces]]
-binding = "SESSION_KV"
-id = "replace-with-kv-id"
-
-[[r2_buckets]]
-binding = "RECEIPTS"
-bucket_name = "goodbois-receipts"
-
+# AI binding (Whisper STT, MeloTTS) — used today.
 [ai]
 binding = "AI"
 
 [vars]
-EXPORT_TOKEN = "dev"
-WORKER_URL = "http://127.0.0.1:8787"
+WORKER_URL = "https://goodboyes.workers.dev"
 ONEMAP_API_BASE_URL = "https://www.onemap.gov.sg"
-# OneMap's public routing API documents walk/drive/cycle/pt route types.
-# Keep this as "walk" unless SLA exposes a separate BFA routeType/API credential for the team.
 ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
 
+# ---------------------------------------------------------------------------
+# Persistence bindings — NOT YET USED. Uncomment + create the Cloudflare
+# resources before relying on them.
+#
+# Sessions and receipts currently live in-memory via createMemoryRepos
+# (workers/src/db/memory.ts). They reset on every worker reload, which is
+# fine for the demo. Switch to KV/D1 when scaling beyond a single instance.
+#
+# To create the resources and get real IDs:
+#   npx wrangler kv:namespace create SESSION_KV
+#   npx wrangler d1 create goodbois
+#   npx wrangler r2 bucket create goodbois-receipts
+# Paste the returned IDs into the bindings below and uncomment.
+# ---------------------------------------------------------------------------
+#
+# [[kv_namespaces]]
+# binding = "SESSION_KV"
+# id = "REPLACE_WITH_REAL_KV_ID"
+#
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "goodbois"
+# database_id = "REPLACE_WITH_REAL_D1_ID"
+#
+# [[r2_buckets]]
+# binding = "RECEIPTS"
+# bucket_name = "goodbois-receipts"
+
 # Configure secrets with Wrangler, never in this file:
-# wrangler secret put ONEMAP_ACCESS_TOKEN
-# or
-# wrangler secret put ONEMAP_EMAIL
-# wrangler secret put ONEMAP_PASS
+#   wrangler secret put SEALION_API_KEY
+#   wrangler secret put ONEMAP_ACCESS_TOKEN  (NTH map render only)
