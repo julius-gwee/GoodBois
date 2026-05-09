@@ -34,7 +34,7 @@ export class D1SessionCaseRepo implements SessionCaseRepo {
     return row ? rowToSessionCase(row) : null;
   }
 
-  async getBySessionId(sessionId: string): Promise<SessionCase | null> {
+  async getLatestBySessionId(sessionId: string): Promise<SessionCase | null> {
     const row = await this.db
       .prepare("SELECT * FROM cases WHERE session_id = ? ORDER BY created_at DESC LIMIT 1")
       .bind(sessionId)

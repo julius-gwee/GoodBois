@@ -6,12 +6,11 @@ import { D1SessionReceiptRepo } from "./receipts";
 /**
  * Creates concrete D1-backed repositories. SQLite has foreign keys
  * disabled by default per connection — D1 uses a fresh connection per
- * request, so we enable them here. If perf ever matters, move the
- * PRAGMA into a one-time worker init path.
+ * request, so we enable them here. The PRAGMA must complete before
+ * any repo methods are called, hence the async signature.
  */
-export function makeD1Repos(db: D1Database): D1Repos {
-  // Fire-and-forget — D1 batches it before the next prepared statement.
-  void db.prepare("PRAGMA foreign_keys = ON").run();
+export async function makeD1Repos(db: D1Database): Promise<D1Repos> {
+  await db.prepare("PRAGMA foreign_keys = ON").run();
   return {
     locations: new D1LocationRepo(db),
     cases: new D1SessionCaseRepo(db),

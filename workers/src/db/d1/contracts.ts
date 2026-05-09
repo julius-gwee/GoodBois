@@ -17,7 +17,7 @@ export type NewSessionCaseInput = Omit<SessionCase, "id" | "createdAt">;
 export interface SessionCaseRepo {
   create(input: NewSessionCaseInput, id: string, createdAt: string): Promise<SessionCase>;
   getById(id: string): Promise<SessionCase | null>;
-  getBySessionId(sessionId: string): Promise<SessionCase | null>;
+  getLatestBySessionId(sessionId: string): Promise<SessionCase | null>;
 }
 
 export type NewSessionReceiptInput = Omit<SessionReceipt, "id" | "generatedAt">;
