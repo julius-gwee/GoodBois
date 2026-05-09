@@ -5,6 +5,7 @@ import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
 import { renderReceiptHtml } from "./receipt/render";
+import { casesToCsv } from "./export/casesCsv";
 
 let repos: Repos | null = null;
 function getRepos(): Repos {
@@ -38,6 +39,33 @@ app.post("/turn", async (c) => {
   };
   return c.json(response, 501);
 });
+
+app.get("/export/cases.csv", async (c) => {
+  const token = c.req.query("token");
+  const expected = c.env.EXPORT_TOKEN;
+  if (!expected || !token || !constantTimeEqual(token, expected)) {
+    return c.json({ code: "UNAUTHORIZED", message: "Invalid or missing token." }, 401);
+  }
+  const r = getRepos();
+  const cases = await r.cases.listForExport();
+  const now = new Date().toISOString();
+  for (const x of cases) await r.cases.markExported(x.id, now);
+  const csv = casesToCsv(cases);
+  return new Response(csv, {
+    status: 200,
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="goodbois-cases-${now.slice(0, 10)}.csv"`,
+    },
+  });
+});
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
 
 app.get("/receipts/:id", async (c) => {
   const id = c.req.param("id");
