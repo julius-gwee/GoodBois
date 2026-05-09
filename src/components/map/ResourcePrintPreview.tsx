@@ -15,7 +15,7 @@ type ResourcePrintPreviewProps = {
 
 export function ResourcePrintPreview({ resource, language, onClose }: ResourcePrintPreviewProps) {
   return (
-    <section className="mt-5 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-neutral-950">
+    <section className="mt-5 rounded-xl border border-dashed border-stone-wash bg-deep-linen p-4 text-deep-charcoal">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-xl font-semibold">{t(language, "printableDetails")}</h3>
         <Button type="button" variant="ghost" size="icon" aria-label={t(language, "close")} onClick={onClose}>
@@ -25,9 +25,9 @@ export function ResourcePrintPreview({ resource, language, onClose }: ResourcePr
 
       <div className="mt-3 space-y-3 text-base leading-6">
         <div>
-          <p className="text-sm font-medium text-neutral-500">{t(language, "destination")}</p>
+          <p className="text-sm font-medium text-muted-stone">{t(language, "destination")}</p>
           <p className="text-lg font-semibold">{getLocalizedText(resource.name, language)}</p>
-          <p className="text-neutral-700">
+          <p className="text-body-gray">
             {categoryLabels[resource.category][language] ?? categoryLabels[resource.category].en}
           </p>
         </div>
@@ -57,16 +57,16 @@ export function ResourcePrintPreview({ resource, language, onClose }: ResourcePr
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          <p className="rounded-lg bg-white px-3 py-2">
+          <p className="rounded-lg bg-soft-cream px-3 py-2">
             {verificationLabels[resource.verificationStatus][language] ?? verificationLabels[resource.verificationStatus].en}
           </p>
-          <p className="rounded-lg bg-white px-3 py-2">{t(language, confidenceKeys[resource.confidenceLevel])}</p>
-          <p className="rounded-lg bg-white px-3 py-2">
+          <p className="rounded-lg bg-soft-cream px-3 py-2">{t(language, confidenceKeys[resource.confidenceLevel])}</p>
+          <p className="rounded-lg bg-soft-cream px-3 py-2">
             {t(language, hazardStatusKeys[resource.currentHazardStatus ?? "unknown"])}
           </p>
         </div>
 
-        <p className="rounded-lg bg-white p-3 text-sm font-medium text-neutral-700">
+        <p className="rounded-lg bg-soft-cream p-3 text-sm font-medium text-body-gray">
           {t(language, "detailsDisclaimer")}
         </p>
       </div>
@@ -77,7 +77,7 @@ export function ResourcePrintPreview({ resource, language, onClose }: ResourcePr
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-sm font-medium text-neutral-500">{label}</p>
+      <p className="text-sm font-medium text-muted-stone">{label}</p>
       <p className="font-semibold">{value}</p>
     </div>
   );

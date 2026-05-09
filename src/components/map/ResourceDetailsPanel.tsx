@@ -34,14 +34,14 @@ export function ResourceDetailsPanel({
   showPrintDetails,
 }: ResourceDetailsPanelProps) {
   return (
-    <aside className="absolute inset-x-0 bottom-0 z-50 max-h-[74dvh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-[0_-16px_45px_rgba(23,23,23,0.22)] lg:inset-y-6 lg:left-auto lg:right-6 lg:w-[430px] lg:rounded-2xl">
+    <aside className="absolute inset-x-0 bottom-0 z-50 max-h-[74dvh] overflow-y-auto rounded-t-2xl border border-stone-wash bg-soft-cream p-5 text-deep-charcoal shadow-[0_-16px_45px_rgba(26,26,22,0.22)] lg:inset-y-6 lg:left-auto lg:right-6 lg:w-[430px] lg:rounded-2xl">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Button type="button" variant="outline" className="min-h-11 rounded-full" onClick={onClose}>
+        <Button type="button" variant="outline" className="min-h-11 rounded-full border-stone-wash bg-deep-linen text-deep-charcoal hover:bg-stone-wash" onClick={onClose}>
           <ArrowLeft className="size-5" aria-hidden="true" />
           {t(language, "close")}
         </Button>
         {fromChat ? (
-          <Button type="button" variant="secondary" className="min-h-11 rounded-full" onClick={onBackToChat}>
+          <Button type="button" className="min-h-11 rounded-full bg-forest-sage text-soft-cream hover:bg-leaf-green" onClick={onBackToChat}>
             <MessageCircle className="size-5" aria-hidden="true" />
             {t(language, "backToChat")}
           </Button>
@@ -49,38 +49,38 @@ export function ResourceDetailsPanel({
       </div>
 
       <div className="space-y-3">
-        <p className="text-base font-medium text-teal-700">
+        <p className="text-base font-medium text-forest-sage">
           {categoryLabels[resource.category][language] ?? categoryLabels[resource.category].en}
         </p>
-        <h2 className="text-3xl font-semibold leading-tight text-neutral-950">
+        <h2 className="text-3xl font-semibold leading-tight text-deep-charcoal">
           {getLocalizedText(resource.name, language)}
         </h2>
-        <p className="text-lg leading-7 text-neutral-700">
+        <p className="text-lg leading-7 text-body-gray">
           {getLocalizedText(resource.description, language)}
         </p>
         {resource.openingHours ? (
-          <p className="flex items-center gap-2 rounded-lg bg-neutral-100 px-3 py-2 text-base text-neutral-800">
-            <Clock className="size-5 text-neutral-600" aria-hidden="true" />
+          <p className="flex items-center gap-2 rounded-lg bg-deep-linen px-3 py-2 text-base text-body-gray">
+            <Clock className="size-5 text-muted-stone" aria-hidden="true" />
             {getLocalizedText(resource.openingHours, language)}
           </p>
         ) : null}
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
-        <Button type="button" className="min-h-14 text-base" onClick={onDirections}>
+        <Button type="button" className="min-h-14 bg-forest-sage text-base text-soft-cream hover:bg-leaf-green" onClick={onDirections}>
           <Route className="size-5" aria-hidden="true" />
           {t(language, "directions")}
         </Button>
-        <Button type="button" variant="outline" className="min-h-14 text-base" onClick={onPrintDetails}>
+        <Button type="button" variant="outline" className="min-h-14 border-stone-wash bg-deep-linen text-base text-deep-charcoal hover:bg-stone-wash" onClick={onPrintDetails}>
           <Printer className="size-5" aria-hidden="true" />
           {t(language, "printDetails")}
         </Button>
-        <Button type="button" variant="secondary" className="min-h-14 text-base" onClick={onReadAloud}>
+        <Button type="button" variant="secondary" className="min-h-14 bg-deep-linen text-base text-deep-charcoal hover:bg-stone-wash" onClick={onReadAloud}>
           <Volume2 className="size-5" aria-hidden="true" />
           {t(language, "readAloud")}
         </Button>
         {resource.contactPhone ? (
-          <Button type="button" variant="secondary" className="min-h-14 text-base">
+          <Button type="button" variant="secondary" className="min-h-14 bg-deep-linen text-base text-deep-charcoal hover:bg-stone-wash">
             <Phone className="size-5" aria-hidden="true" />
             {resource.contactPhone}
           </Button>
@@ -104,15 +104,15 @@ export function ResourceDetailsPanel({
           ))}
         </ul>
       </Section>
-      <p className="mt-4 rounded-lg bg-teal-50 px-3 py-2 text-base font-medium text-teal-900">
+      <p className="mt-4 rounded-lg bg-deep-linen px-3 py-2 text-base font-medium text-forest-sage">
         {verificationLabels[resource.verificationStatus][language] ??
           verificationLabels[resource.verificationStatus].en}
       </p>
       <div className="mt-3 grid gap-2 text-base font-medium sm:grid-cols-2">
-        <p className="rounded-lg bg-blue-50 px-3 py-2 text-blue-950">
+        <p className="rounded-lg bg-deep-linen px-3 py-2 text-body-gray">
           {t(language, confidenceKeys[resource.confidenceLevel])}
         </p>
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-950">
+        <p className="rounded-lg border border-deep-terracotta/30 bg-deep-linen px-3 py-2 text-deep-terracotta">
           {t(language, hazardStatusKeys[resource.currentHazardStatus ?? "unknown"])}
         </p>
       </div>
@@ -125,8 +125,8 @@ export function ResourceDetailsPanel({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-5 space-y-2 border-t border-neutral-200 pt-4 text-base leading-7 text-neutral-800">
-      <h3 className="text-lg font-semibold text-neutral-950">{title}</h3>
+    <section className="mt-5 space-y-2 border-t border-stone-wash pt-4 text-base leading-7 text-body-gray">
+      <h3 className="text-lg font-semibold text-deep-charcoal">{title}</h3>
       {children}
     </section>
   );

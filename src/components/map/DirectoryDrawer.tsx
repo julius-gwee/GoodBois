@@ -33,16 +33,16 @@ export function DirectoryDrawer({
   onSelectResource,
 }: DirectoryDrawerProps) {
   return (
-    <aside className="z-[700] flex max-h-[52dvh] flex-col rounded-t-2xl bg-neutral-50 shadow-[0_-14px_40px_rgba(23,23,23,0.16)] lg:fixed lg:bottom-20 lg:left-6 lg:max-h-[58dvh] lg:w-[440px] lg:rounded-2xl">
-      <div className="space-y-3 border-b border-neutral-200 p-4">
+    <aside className="z-[700] flex max-h-[52dvh] flex-col rounded-t-2xl border border-stone-wash bg-soft-cream shadow-[0_-14px_40px_rgba(26,26,22,0.16)] lg:fixed lg:bottom-20 lg:left-6 lg:max-h-[58dvh] lg:w-[440px] lg:rounded-2xl">
+      <div className="space-y-3 border-b border-stone-wash p-4">
         <label className="relative block">
           <span className="sr-only">{t(language, "search")}</span>
-          <Search className="pointer-events-none absolute left-4 top-1/2 size-6 -translate-y-1/2 text-neutral-500" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 size-6 -translate-y-1/2 text-muted-stone" />
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder={t(language, "search")}
-            className="min-h-14 w-full rounded-full border border-neutral-200 bg-white px-12 text-lg text-neutral-950 shadow-sm outline-none transition focus:border-teal-600 focus:ring-3 focus:ring-teal-200"
+            className="min-h-14 w-full rounded-full border border-stone-wash bg-deep-linen px-12 text-lg text-deep-charcoal shadow-sm outline-none transition placeholder:text-muted-stone focus:border-forest-sage focus:ring-3 focus:ring-leaf-green/30"
           />
         </label>
         <CategoryChips language={language} selectedCategory={category} onCategoryChange={onCategoryChange} />
@@ -50,18 +50,18 @@ export function DirectoryDrawer({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-neutral-950">{t(language, "nearby")}</h2>
-          <span className="rounded-full bg-neutral-200 px-3 py-1 text-sm font-medium text-neutral-700">
+          <h2 className="text-2xl font-semibold text-deep-charcoal">{t(language, "nearby")}</h2>
+          <span className="rounded-full bg-deep-linen px-3 py-1 text-sm font-medium text-body-gray">
             {resources.length}
           </span>
         </div>
         {source === "fixture" ? (
-          <p className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-950">
+          <p className="mb-3 rounded-lg border border-deep-terracotta/30 bg-deep-linen px-3 py-2 text-sm font-medium text-deep-terracotta">
             Demo data shown. Worker connection is not active.
           </p>
         ) : null}
         {loading ? (
-          <p className="mb-3 rounded-lg bg-teal-50 px-3 py-2 text-sm font-medium text-teal-900">
+          <p className="mb-3 rounded-lg bg-deep-linen px-3 py-2 text-sm font-medium text-forest-sage">
             Loading places...
           </p>
         ) : null}

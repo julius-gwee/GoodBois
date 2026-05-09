@@ -3,6 +3,7 @@
 import { categoryLabels } from "@/lib/map/i18n";
 import type { DirectoryLanguage, ResourceCategory } from "@/types/goodbois";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const categories: Array<ResourceCategory | "all"> = [
   "all",
@@ -31,8 +32,13 @@ export function CategoryChips({
         <Button
           key={category}
           type="button"
-          variant={selectedCategory === category ? "default" : "secondary"}
-          className="min-h-11 shrink-0 rounded-full px-4 text-base shadow-sm"
+          variant="outline"
+          className={cn(
+            "min-h-11 shrink-0 rounded-full border px-4 text-base shadow-sm",
+            selectedCategory === category
+              ? "border-forest-sage bg-forest-sage text-soft-cream hover:bg-leaf-green hover:text-soft-cream"
+              : "border-stone-wash bg-deep-linen text-deep-charcoal hover:bg-stone-wash",
+          )}
           aria-pressed={selectedCategory === category}
           onClick={() => onCategoryChange(category)}
         >

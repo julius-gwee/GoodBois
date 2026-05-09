@@ -15,9 +15,9 @@ import { DirectionsPanel } from "./DirectionsPanel";
 import { LanguageBar } from "./LanguageBar";
 import { ResourceDetailsPanel } from "./ResourceDetailsPanel";
 
-const MapCanvas = dynamic(() => import("./MapCanvas").then((module) => module.MapCanvas), {
+const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
-  loading: () => <div className="min-h-[48dvh] flex-1 bg-[#dce9e3] lg:min-h-dvh" />,
+  loading: () => <div className="min-h-[48dvh] flex-1 bg-deep-linen lg:min-h-dvh" />,
 });
 
 type KawanDirectoryAppProps = {
@@ -123,19 +123,19 @@ export function KawanDirectoryApp({
 
   if (mode === "chat") {
     return (
-      <main className="flex min-h-dvh flex-col bg-neutral-950 text-white">
+      <main className="flex min-h-dvh flex-col bg-deep-charcoal text-soft-cream">
         <section className="flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-          <div className="flex size-20 items-center justify-center rounded-3xl bg-teal-600 text-4xl font-semibold">
+          <div className="flex size-20 items-center justify-center rounded-3xl bg-forest-sage text-4xl font-semibold text-soft-cream">
             K
           </div>
           <div className="max-w-xl space-y-3">
-            <p className="text-lg font-medium text-teal-200">Kawan</p>
+            <p className="text-lg font-medium text-leaf-green">Kawan</p>
             <h1 className="text-4xl font-semibold">{t(language, "chatPlaceholder")}</h1>
-            <p className="text-xl leading-8 text-neutral-200">{t(language, "chatPlaceholderBody")}</p>
+            <p className="text-xl leading-8 text-deep-linen">{t(language, "chatPlaceholderBody")}</p>
           </div>
           <Button
             type="button"
-            className="min-h-14 rounded-full bg-amber-500 px-6 text-lg text-neutral-950 hover:bg-amber-400"
+            className="min-h-14 rounded-full bg-forest-sage px-6 text-lg text-soft-cream hover:bg-leaf-green"
             onClick={() => setMode("map")}
           >
             {t(language, "findPlaces")}
@@ -147,19 +147,19 @@ export function KawanDirectoryApp({
   }
 
   return (
-    <main className="relative flex h-dvh min-h-dvh flex-col overflow-hidden bg-neutral-100 text-neutral-950 lg:block">
-      <header className="fixed left-3 right-3 top-3 z-[700] rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur lg:left-6 lg:right-auto lg:w-[560px]">
+    <main className="relative flex h-dvh min-h-dvh flex-col overflow-hidden bg-soft-cream text-deep-charcoal lg:block">
+      <header className="fixed left-3 right-3 top-3 z-[700] rounded-2xl border border-stone-wash bg-soft-cream/95 p-3 shadow-lg backdrop-blur lg:left-6 lg:right-auto lg:w-[560px]">
         <div className="flex items-center gap-3">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-2xl font-semibold text-white">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-forest-sage text-2xl font-semibold text-soft-cream">
             K
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium uppercase tracking-wide text-teal-700">Kawan</p>
-            <h1 className="truncate text-2xl font-semibold text-neutral-950">
+            <p className="text-sm font-medium uppercase tracking-wide text-forest-sage">Kawan</p>
+            <h1 className="truncate text-2xl font-semibold text-deep-charcoal">
               {getLocalizedText(activeResource.name, language)}
             </h1>
           </div>
-          <Button type="button" className="min-h-12 rounded-full bg-amber-500 px-4 text-neutral-950 hover:bg-amber-400">
+          <Button type="button" className="min-h-12 rounded-full bg-forest-sage px-4 text-soft-cream hover:bg-leaf-green">
             <MessageCircle className="size-5" aria-hidden="true" />
             <span className="hidden sm:inline">{t(language, "talk")}</span>
           </Button>
