@@ -151,6 +151,7 @@ export default function KioskShell() {
   const pulseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const capturedAudioRef = useRef<CapturedAudio | null>(null);
   const captureInFlightRef = useRef<boolean>(false);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   const clearAllTimers = useCallback(() => {
     if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
@@ -300,6 +301,24 @@ export default function KioskShell() {
         agentEntry,
       ]);
       setTranscript(null);
+
+      const audioToPlay = response?.audioUrl;
+      if (audioToPlay) {
+        try {
+          if (audioPlayerRef.current) {
+            audioPlayerRef.current.pause();
+            audioPlayerRef.current = null;
+          }
+          const player = new Audio(audioToPlay);
+          audioPlayerRef.current = player;
+          player.play().catch(() => {
+            // Autoplay blocked or invalid URL; degrade silently.
+          });
+        } catch {
+          // No-op.
+        }
+      }
+
       turnIndexRef.current = Math.min(
         turnIndexRef.current + 1,
         TURN_SEQUENCE.length
@@ -315,6 +334,15 @@ export default function KioskShell() {
       if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
     };
   }, [state, resetToIdle]);
+
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleBlobActivate = () => {
     if (state === "idle" || state === "chat") {

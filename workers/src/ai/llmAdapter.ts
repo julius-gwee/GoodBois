@@ -97,6 +97,18 @@ function pickCannedTriage(messages: LlmMessage[]): CannedTriage {
   };
 }
 
+function stripCodeFences(raw: string): string {
+  // Llama-3 sometimes wraps JSON in markdown fences. Strip them before parsing.
+  const trimmed = raw.trim();
+  // Match ```json ... ``` or ``` ... ```
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenceMatch) return fenceMatch[1].trim();
+  // Match a leading "Here is the JSON:" preamble + JSON object
+  const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (objectMatch) return objectMatch[0];
+  return trimmed;
+}
+
 export async function llmAdapter<T = unknown>(
   input: LlmInput,
   env: LlmEnv
@@ -120,7 +132,7 @@ export async function llmAdapter<T = unknown>(
 
   let parsed: T | undefined;
   try {
-    parsed = JSON.parse(raw) as T;
+    parsed = JSON.parse(stripCodeFences(raw)) as T;
   } catch {
     parsed = undefined;
   }

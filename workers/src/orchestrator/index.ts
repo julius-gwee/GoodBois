@@ -179,7 +179,12 @@ export async function orchestrate(
       { text: responseUserLang, language: userLang },
       env,
     );
-    audioUrl = tts.audioUrl;
+    if (tts.audioUrl) {
+      audioUrl = tts.audioUrl;
+    } else if (tts.audioBase64) {
+      // MeloTTS returns MP3-encoded bytes per Cloudflare docs.
+      audioUrl = `data:audio/mpeg;base64,${tts.audioBase64}`;
+    }
   } catch {
     audioUrl = undefined;
   }
