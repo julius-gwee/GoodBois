@@ -1,6 +1,7 @@
 import type {
   AgencyCategory,
   AgencyContact,
+  KioskSession,
   Receipt,
   ToolInvocation,
 } from "../types/contracts";
@@ -23,6 +24,12 @@ export interface ReceiptRepo {
   getById(id: string): Promise<Receipt | null>;
 }
 
+export interface SessionRepo {
+  get(id: string): Promise<KioskSession | null>;
+  put(session: KioskSession): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+
 export interface ToolInvocationRepo {
   record(invocation: ToolInvocation): Promise<void>;
 }
@@ -30,5 +37,6 @@ export interface ToolInvocationRepo {
 export type Repos = {
   agencies: AgencyRepo;
   receipts: ReceiptRepo;
+  sessions: SessionRepo;
   toolInvocations: ToolInvocationRepo;
 };

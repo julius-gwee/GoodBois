@@ -1,5 +1,6 @@
 import type {
   AgencyContact,
+  KioskSession,
   Receipt,
   ToolInvocation,
 } from "../types/contracts";
@@ -9,6 +10,7 @@ import type {
   NewReceiptInput,
   ReceiptRepo,
   Repos,
+  SessionRepo,
   ToolInvocationRepo,
 } from "./repos";
 
@@ -17,6 +19,7 @@ export function createMemoryRepos(seedAgencies: AgencyContact[]): Repos {
   for (const a of seedAgencies) agencies.set(a.key, a);
 
   const receipts = new Map<string, Receipt>();
+  const sessions = new Map<string, KioskSession>();
   const toolInvocations: ToolInvocation[] = [];
 
   const agencyRepo: AgencyRepo = {
@@ -50,6 +53,27 @@ export function createMemoryRepos(seedAgencies: AgencyContact[]): Repos {
     },
   };
 
+  const sessionRepo: SessionRepo = {
+    async get(id) {
+      const row = sessions.get(id);
+      if (!row) return null;
+      // Return a deep-ish clone so callers can mutate without aliasing.
+      return {
+        ...row,
+        history: row.history.map((m) => ({ ...m })),
+      };
+    },
+    async put(session) {
+      sessions.set(session.id, {
+        ...session,
+        history: session.history.map((m) => ({ ...m })),
+      });
+    },
+    async delete(id) {
+      sessions.delete(id);
+    },
+  };
+
   const toolInvocationRepo: ToolInvocationRepo = {
     async record(invocation) {
       toolInvocations.push(invocation);
@@ -59,6 +83,7 @@ export function createMemoryRepos(seedAgencies: AgencyContact[]): Repos {
   return {
     agencies: agencyRepo,
     receipts: receiptRepo,
+    sessions: sessionRepo,
     toolInvocations: toolInvocationRepo,
   };
 }

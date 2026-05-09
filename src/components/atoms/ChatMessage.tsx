@@ -1,23 +1,18 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type ChatMessageProps = {
   role: "agent" | "user";
   text: string;
-  englishText?: string;
   language: string;
-  children?: ReactNode;
   className?: string;
 };
 
 export default function ChatMessage({
   role,
   text,
-  englishText,
   language,
-  children,
   className,
 }: ChatMessageProps) {
   const isAgent = role === "agent";
@@ -40,18 +35,6 @@ export default function ChatMessage({
         <p className="text-xl leading-relaxed" lang={language}>
           {text}
         </p>
-        {englishText && language !== "en" && (
-          <p
-            className={cn(
-              "mt-2 text-sm leading-snug",
-              isAgent ? "text-muted-stone" : "text-soft-cream/80"
-            )}
-            lang="en"
-          >
-            {englishText}
-          </p>
-        )}
-        {children && <div className="mt-4">{children}</div>}
       </div>
     </div>
   );

@@ -81,14 +81,15 @@ export async function invokeTool(
       }
 
       case "generateReceipt": {
-        // Hydrate hazardReferenceId from a prior reportHazard result if the
-        // LLM omitted it. Spec invariant 8: inter-tool data flow is
-        // orchestrator-side, not LLM-predicted.
+        // Spec invariant 8: inter-tool data flow is orchestrator-side, not
+        // LLM-predicted. If a reportHazard ran earlier in this turn, its
+        // referenceId always wins over whatever the LLM emitted (which in
+        // practice is often a literal placeholder like "[HAZARD_REFERENCE_ID]"
+        // because the model can't know the runtime id).
+        const priorHazardRef = ctx.priorToolResults.reportHazard?.referenceId;
         const hydrated: GenerateReceiptArgs = {
           ...call.args,
-          hazardReferenceId:
-            call.args.hazardReferenceId ??
-            ctx.priorToolResults.reportHazard?.referenceId,
+          hazardReferenceId: priorHazardRef ?? call.args.hazardReferenceId,
         };
         const result = await generateReceipt(hydrated, {
           repos: ctx.repos,

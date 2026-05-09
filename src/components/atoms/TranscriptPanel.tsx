@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 
 type TranscriptPanelProps = {
-  transcript: { original: string; english?: string; language: string } | null;
+  transcript: { english: string; srcLang: string } | null;
   isListening: boolean;
   className?: string;
 };
@@ -27,17 +27,14 @@ export default function TranscriptPanel({
         </div>
       )}
 
-      {transcript && (
+      {transcript && transcript.english && (
         <div className="flex max-w-3xl flex-col items-center gap-2">
-          <p
-            className="text-2xl font-medium text-body-gray"
-            lang={transcript.language}
-          >
-            {transcript.original}
+          <p className="text-2xl font-medium text-body-gray" lang="en">
+            {transcript.english}
           </p>
-          {transcript.english && transcript.language !== "en" && (
-            <p className="text-base text-muted-stone" lang="en">
-              {transcript.english}
+          {transcript.srcLang && transcript.srcLang !== "en" && (
+            <p className="text-sm uppercase tracking-wide text-muted-stone">
+              {transcript.srcLang}
             </p>
           )}
         </div>
