@@ -16,21 +16,25 @@ import type { TurnRequest, TurnResponse } from "./types/contracts";
 import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
+import { makeD1Repos } from "./db/d1";
 import { renderReceiptHtml } from "./receipt/render";
 
 export type WorkerBindings = {
   AI?: {
     run: (model: string, input: unknown) => Promise<{ text?: string; response?: string }>;
   };
+  DB?: D1Database;
   SEALION_API_KEY?: string;
   SEALION_BASE_URL?: string;
   WORKER_URL?: string;
 };
 
-let repos: Repos | null = null;
-function getRepos(): Repos {
-  if (!repos) repos = createMemoryRepos(seedAgencies);
-  return repos;
+let memoryRepos: Repos | null = null;
+async function getRepos(env: WorkerBindings | undefined): Promise<Repos> {
+  if (env?.DB) return makeD1Repos(env.DB);
+  // Fallback for local dev / tests without a D1 binding.
+  if (!memoryRepos) memoryRepos = createMemoryRepos(seedAgencies);
+  return memoryRepos;
 }
 
 const RECEIPT_ID_RE = /^GBR-\d{8}-\d{3}$/;
@@ -114,7 +118,7 @@ app.get("/receipts/:id", async (c) => {
   if (!RECEIPT_ID_RE.test(id)) {
     return c.json({ code: "INVALID_ID", message: "Receipt id format is wrong." }, 400);
   }
-  const r = getRepos();
+  const r = await getRepos(c.env);
   const receipt = await r.receipts.getById(id);
   if (!receipt) return c.json({ code: "NOT_FOUND", message: "Receipt not found." }, 404);
   const agency = receipt.signpostedAgencyKey
