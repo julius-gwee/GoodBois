@@ -25,9 +25,11 @@ export default function LanguageFadeCycle({
     if (paused) return;
 
     const holdMs = reducedMotion ? HOLD_MS_REDUCED : HOLD_MS_NORMAL;
+    // Interval = visible dwell + 2 crossfades (exit + enter) so each language
+    // is held visible at full opacity for HOLD_MS before the next cycle.
     const interval = setInterval(() => {
       setIndex((i) => (i + 1) % HOME_GREETINGS.length);
-    }, holdMs + CROSSFADE_MS);
+    }, holdMs + 2 * CROSSFADE_MS);
 
     return () => clearInterval(interval);
   }, [paused, reducedMotion]);
@@ -37,7 +39,7 @@ export default function LanguageFadeCycle({
 
   return (
     <div
-      className="flex flex-col items-center gap-2 text-center"
+      className="flex flex-col items-center text-center"
       aria-live="polite"
       aria-atomic="true"
     >
