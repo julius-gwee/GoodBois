@@ -1,7 +1,8 @@
+import type { AgencyContact, Receipt } from "../../types/contracts";
 import type {
-  Location, SessionCase, SessionCaseHistoryEntry, SessionCaseRequestType,
-  SessionCaseRow, SessionCaseToolCall, SessionReceipt, SessionReceiptRow,
-  LocationRow,
+  SessionCase, SessionCaseHistoryEntry, SessionCaseRequestType,
+  SessionCaseRow, SessionCaseToolCall,
+  LocationRow, ReceiptRow,
 } from "./types";
 import type { AgencyCategory } from "../../types/contracts";
 
@@ -9,7 +10,7 @@ function nullable<T>(v: T | null | undefined): T | undefined {
   return v === null || v === undefined ? undefined : v;
 }
 
-export function rowToLocation(row: LocationRow): Location {
+export function rowToAgency(row: LocationRow): AgencyContact {
   return {
     key: row.key,
     name: row.name,
@@ -23,27 +24,27 @@ export function rowToLocation(row: LocationRow): Location {
     longitude: nullable(row.longitude),
     walkingDirectionsHint: nullable(row.walking_directions),
     active: row.active === 1,
-    source: row.source as Location["source"],
+    source: row.source as AgencyContact["source"],
     updatedAt: row.updated_at,
   };
 }
 
-export function locationToRow(loc: Location): LocationRow {
+export function agencyToRow(agency: AgencyContact): LocationRow {
   return {
-    key: loc.key,
-    name: loc.name,
-    category: loc.category,
-    hotline: loc.hotline ?? null,
-    address: loc.address ?? null,
-    url: loc.url ?? null,
-    opening_hours: loc.openingHours ?? null,
-    multilingual_blurb: JSON.stringify(loc.multilingualBlurb ?? {}),
-    latitude: loc.latitude ?? null,
-    longitude: loc.longitude ?? null,
-    walking_directions: loc.walkingDirectionsHint ?? null,
-    active: loc.active ? 1 : 0,
-    source: loc.source,
-    updated_at: loc.updatedAt,
+    key: agency.key,
+    name: agency.name,
+    category: agency.category,
+    hotline: agency.hotline ?? null,
+    address: agency.address ?? null,
+    url: agency.url ?? null,
+    opening_hours: agency.openingHours ?? null,
+    multilingual_blurb: JSON.stringify(agency.multilingualBlurb ?? {}),
+    latitude: agency.latitude ?? null,
+    longitude: agency.longitude ?? null,
+    walking_directions: agency.walkingDirectionsHint ?? null,
+    active: agency.active ? 1 : 0,
+    source: agency.source,
+    updated_at: agency.updatedAt,
   };
 }
 
@@ -81,7 +82,7 @@ export function sessionCaseToRow(c: SessionCase): SessionCaseRow {
   };
 }
 
-export function rowToSessionReceipt(row: SessionReceiptRow): SessionReceipt {
+export function rowToReceipt(row: ReceiptRow): Receipt {
   return {
     id: row.id,
     sessionId: row.session_id,
@@ -95,7 +96,7 @@ export function rowToSessionReceipt(row: SessionReceiptRow): SessionReceipt {
   };
 }
 
-export function sessionReceiptToRow(r: SessionReceipt): SessionReceiptRow {
+export function receiptToRow(r: Receipt): ReceiptRow {
   return {
     id: r.id,
     session_id: r.sessionId,

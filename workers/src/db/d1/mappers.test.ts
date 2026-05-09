@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  rowToLocation, locationToRow,
+  rowToAgency, agencyToRow,
   rowToSessionCase, sessionCaseToRow,
-  rowToSessionReceipt, sessionReceiptToRow,
+  rowToReceipt, receiptToRow,
 } from "./mappers";
-import type { LocationRow, SessionCaseRow, SessionReceiptRow } from "./types";
+import type { LocationRow, SessionCaseRow, ReceiptRow } from "./types";
 
-describe("rowToLocation", () => {
+describe("rowToAgency", () => {
   it("parses a fully-populated row", () => {
     const row: LocationRow = {
       key: "test",
@@ -24,11 +24,11 @@ describe("rowToLocation", () => {
       source: "seed",
       updated_at: "2026-05-09T00:00:00+08:00",
     };
-    const loc = rowToLocation(row);
-    expect(loc.key).toBe("test");
-    expect(loc.multilingualBlurb).toEqual({ en: "hi", "zh-Hans": "你好" });
-    expect(loc.latitude).toBe(1.3521);
-    expect(loc.active).toBe(true);
+    const agency = rowToAgency(row);
+    expect(agency.key).toBe("test");
+    expect(agency.multilingualBlurb).toEqual({ en: "hi", "zh-Hans": "你好" });
+    expect(agency.latitude).toBe(1.3521);
+    expect(agency.active).toBe(true);
   });
 
   it("handles nullable fields", () => {
@@ -39,15 +39,15 @@ describe("rowToLocation", () => {
       latitude: null, longitude: null, walking_directions: null,
       active: 0, source: "seed", updated_at: "2026-05-09T00:00:00+08:00",
     };
-    const loc = rowToLocation(row);
-    expect(loc.hotline).toBeUndefined();
-    expect(loc.latitude).toBeUndefined();
-    expect(loc.active).toBe(false);
+    const agency = rowToAgency(row);
+    expect(agency.hotline).toBeUndefined();
+    expect(agency.latitude).toBeUndefined();
+    expect(agency.active).toBe(false);
   });
 });
 
-describe("locationToRow", () => {
-  it("round-trips with rowToLocation", () => {
+describe("agencyToRow", () => {
+  it("round-trips with rowToAgency", () => {
     const row: LocationRow = {
       key: "k", name: "n", category: "healthcare",
       hotline: null, address: null, url: null,
@@ -55,8 +55,8 @@ describe("locationToRow", () => {
       latitude: null, longitude: null, walking_directions: null,
       active: 1, source: "seed", updated_at: "2026-05-09T00:00:00+08:00",
     };
-    const loc = rowToLocation(row);
-    const back = locationToRow(loc);
+    const agency = rowToAgency(row);
+    const back = agencyToRow(agency);
     expect(back).toEqual(row);
   });
 });
@@ -84,9 +84,9 @@ describe("rowToSessionCase", () => {
   });
 });
 
-describe("rowToSessionReceipt", () => {
+describe("rowToReceipt", () => {
   it("parses things_to_bring_json", () => {
-    const row: SessionReceiptRow = {
+    const row: ReceiptRow = {
       id: "GBR-20260510-001", session_id: "sess-1",
       language: "zh-SG", body: "...",
       things_to_bring_json: '["NRIC","glasses"]',
@@ -95,13 +95,13 @@ describe("rowToSessionReceipt", () => {
       hazard_reference_id: null,
       generated_at: "2026-05-10T01:00:00Z",
     };
-    const r = rowToSessionReceipt(row);
+    const r = rowToReceipt(row);
     expect(r.thingsToBring).toEqual(["NRIC", "glasses"]);
     expect(r.caseSummary).toBeUndefined();
   });
 });
 
-describe("sessionCaseToRow / sessionReceiptToRow round-trip", () => {
+describe("sessionCaseToRow / receiptToRow round-trip", () => {
   it("case round-trips", () => {
     const c = {
       id: "GBC-1", sessionId: "s", kioskId: "k", srcLang: "en-SG",
@@ -120,7 +120,7 @@ describe("sessionCaseToRow / sessionReceiptToRow round-trip", () => {
       id: "GBR-1", sessionId: "s", language: "zh-SG",
       body: "b", thingsToBring: ["a"], generatedAt: "t",
     };
-    const back = rowToSessionReceipt(sessionReceiptToRow(r));
+    const back = rowToReceipt(receiptToRow(r));
     expect(back).toEqual(r);
   });
 });

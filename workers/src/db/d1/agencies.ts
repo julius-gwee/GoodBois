@@ -1,11 +1,12 @@
-import type { LocationRepo, LocationFilter } from "./contracts";
-import type { Location, LocationRow } from "./types";
-import { rowToLocation } from "./mappers";
+import type { AgencyRepo, AgencyListFilter } from "../repos";
+import type { AgencyContact } from "../../types/contracts";
+import type { LocationRow } from "./types";
+import { rowToAgency } from "./mappers";
 
-export class D1LocationRepo implements LocationRepo {
+export class D1AgencyRepo implements AgencyRepo {
   constructor(private readonly db: D1Database) {}
 
-  async list(filter: LocationFilter = {}): Promise<Location[]> {
+  async list(filter: AgencyListFilter = {}): Promise<AgencyContact[]> {
     const where: string[] = [];
     const binds: unknown[] = [];
     if (filter.activeOnly) where.push("active = 1");
@@ -15,15 +16,15 @@ export class D1LocationRepo implements LocationRepo {
     }
     const sql = `SELECT * FROM locations${where.length ? " WHERE " + where.join(" AND ") : ""} ORDER BY name`;
     const { results } = await this.db.prepare(sql).bind(...binds).all<LocationRow>();
-    return (results ?? []).map(rowToLocation);
+    return (results ?? []).map(rowToAgency);
   }
 
-  async getByKey(key: string): Promise<Location | null> {
+  async getByKey(key: string): Promise<AgencyContact | null> {
     const row = await this.db
       .prepare("SELECT * FROM locations WHERE key = ?")
       .bind(key)
       .first<LocationRow>();
-    return row ? rowToLocation(row) : null;
+    return row ? rowToAgency(row) : null;
   }
 
   async exists(key: string): Promise<boolean> {

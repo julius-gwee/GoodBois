@@ -1,4 +1,4 @@
-import type { SessionCaseRepo, NewSessionCaseInput } from "./contracts";
+import type { SessionCaseRepo, NewSessionCaseInput } from "./cases-contracts";
 import type { SessionCase, SessionCaseRow } from "./types";
 import { rowToSessionCase, sessionCaseToRow } from "./mappers";
 

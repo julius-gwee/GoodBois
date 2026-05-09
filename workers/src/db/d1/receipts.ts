@@ -1,17 +1,17 @@
-import type { SessionReceiptRepo, NewSessionReceiptInput } from "./contracts";
-import type { SessionReceipt, SessionReceiptRow } from "./types";
-import { rowToSessionReceipt, sessionReceiptToRow } from "./mappers";
+import type { ReceiptRepo, NewReceiptInput } from "../repos";
+import type { Receipt } from "../../types/contracts";
+import type { ReceiptRow } from "./types";
+import { rowToReceipt, receiptToRow } from "./mappers";
+import { generateId } from "../ids";
 
-export class D1SessionReceiptRepo implements SessionReceiptRepo {
+export class D1ReceiptRepo implements ReceiptRepo {
   constructor(private readonly db: D1Database) {}
 
-  async create(
-    input: NewSessionReceiptInput,
-    id: string,
-    generatedAt: string,
-  ): Promise<SessionReceipt> {
-    const r: SessionReceipt = { ...input, id, generatedAt };
-    const row = sessionReceiptToRow(r);
+  async create(input: NewReceiptInput): Promise<Receipt> {
+    const id = generateId("GBR");
+    const generatedAt = new Date().toISOString();
+    const r: Receipt = { ...input, id, generatedAt };
+    const row = receiptToRow(r);
     await this.db.prepare(`
       INSERT INTO receipts (
         id, session_id, language, body, things_to_bring_json,
@@ -24,11 +24,11 @@ export class D1SessionReceiptRepo implements SessionReceiptRepo {
     return r;
   }
 
-  async getById(id: string): Promise<SessionReceipt | null> {
+  async getById(id: string): Promise<Receipt | null> {
     const row = await this.db
       .prepare("SELECT * FROM receipts WHERE id = ?")
       .bind(id)
-      .first<SessionReceiptRow>();
-    return row ? rowToSessionReceipt(row) : null;
+      .first<ReceiptRow>();
+    return row ? rowToReceipt(row) : null;
   }
 }
