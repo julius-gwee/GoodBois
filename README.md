@@ -16,19 +16,28 @@ For the locked stack and architecture, read `docs/system-design/tech-stack.md`. 
 Resident speaks (Mandarin / Hokkien / English / …)
    │
    ▼
-Cloudflare Worker (orchestrator)
-   ├─ STT (Workers AI)
-   ├─ Translate user → English (SEALion)
-   ├─ LLM triage + tool selection (Workers AI)
-   ├─ Tool calls (signpost / findNearby / simulateBooking / generateReceipt / escalateToMpRc)
-   ├─ Translate English → user (SEALion)
-   └─ TTS (Workers AI)
+Cloudflare Worker (orchestrator) — see docs/refactor/2026-05-09-llm-turn-decision.md
+   ├─ STT (transcribe + detect source language)        → { transcript_en, srcLang }
+   ├─ Classifier LLM (loops on ask_followup)           → ClassifierDecision
+   ├─ Main LLM (emits the turn decision)               → LLMTurnDecision
+   │     { requestType, kioskMessage, toolCalls[] }
+   ├─ Tool dispatch (orchestrator walks toolCalls[] in order):
+   │     • signpost(agencyKey)
+   │     • reportHazard(category, location, description)   ← demo stub
+   │     • generateReceipt(...)                            ← MANDATORY
+   ├─ Translate kioskMessage (English → srcLang)
+   └─ TTS (audio out in srcLang)
    │
    ▼
-Kiosk plays response, shows on-screen card or full-screen receipt PDF
+Kiosk plays response, shows full-screen HTML receipt with the structured handoff,
+then resets the session for the next user.
 ```
 
-**Key principle:** the frontend never calls Workers AI or SEALion directly. All AI calls go through the orchestrator Worker.
+**Key principles:**
+- The frontend never calls Workers AI or SEALion directly. All AI calls go through the orchestrator Worker.
+- The kiosk speaks back in whatever language the user spoke — the language tile is gone; STT detects.
+- `kioskMessage` is the conversational reply (chat bubble + TTS source). The receipt body is a separate field inside `generateReceipt.args`.
+- Sessions are single-shot. KV state is wiped after each terminal turn.
 
 ---
 
@@ -126,11 +135,11 @@ Worker secrets are managed via `wrangler secret put` — see `docs/system-design
 
 For new team members and AI agents:
 
-1. `docs/START_HERE_FOR_NEW_AGENTS.md`
-2. `AGENTS.md` (or `CLAUDE.md` / `.codex/skills/care-access-map/SKILL.md` for tool-specific rules)
-3. `docs/hackathon/agent-launch-packet.md` — agent ownership, mock contract, and golden path
-4. `docs/hackathon/build-day-scaffold.md` — scaffold handoff
-5. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD
+1. `docs/refactor/2026-05-09-llm-turn-decision.md` — **canonical spec for the agent flow.** Read first.
+2. `docs/START_HERE_FOR_NEW_AGENTS.md`
+3. `AGENTS.md` (or `CLAUDE.md` / `.codex/skills/care-access-map/SKILL.md` for tool-specific rules)
+4. `docs/hackathon/agent-launch-packet.md` — mock-first contract and golden path
+5. `docs/hackathon/build-day-scaffold.md` — scaffold handoff
 6. `docs/system-design/tech-stack.md` — locked stack
 7. `docs/standards/data-contracts.md` — canonical types
 8. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for, plus GTM / sustainability / regional-scaling docs in the same folder
