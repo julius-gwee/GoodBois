@@ -23,10 +23,27 @@ export type TriageDecision = {
   selectedAgencyKey?: string;
 };
 
+// Agency keys must match Dev B's seeded directory at workers/src/db/seeds/agencies.ts.
+// Keep this list aligned with that file (subset is fine; superset will fail at runProcessing).
 const ALLOWED_AGENCY_KEYS = new Set<string>([
   "hdb_essential_maintenance",
+  "hdb_branch_office",
+  "lta_customer_service",
+  "transport_aid_silver_generation",
+  "aic_eldercare_hotline",
   "scdf_emergency",
-  "aic_hotline",
+  "police_non_emergency",
+  "legal_aid_bureau",
+  "family_service_centre",
+  "silver_generation_office",
+  "comcare_hotline",
+  "cpf_senior_hotline",
+  "peoples_association",
+  "active_ageing_centre",
+  "skillsfuture_singapore",
+  "sg_digital_office_seniors_go_digital",
+  "mp_meet_the_people_session",
+  "rc_visit",
 ]);
 
 const ALLOWED_OUTCOMES = new Set<TriageOutcome>([
@@ -38,14 +55,40 @@ const ALLOWED_OUTCOMES = new Set<TriageOutcome>([
 ]);
 
 const SYSTEM_PROMPT =
-  "You are an eldercare kiosk triage agent. Read the resident's English-translated " +
-  "request and pick ONE outcome from the allowed list. The outcome guides what the " +
-  "kiosk does next.\n\n" +
-  "Allowed outcomes: signpost, find_nearby, ask_followup, escalate, out_of_scope.\n" +
-  "Allowed agency keys (only use these): hdb_essential_maintenance, scdf_emergency, aic_hotline.\n" +
-  "DO NOT invent agency keys.\n\n" +
-  "Respond with JSON only:\n" +
-  '{"outcome":"<outcome>","confidence":"high|medium|low","selectedToolName":"<tool if relevant>","selectedAgencyKey":"<key if signpost or out_of_scope>"}';
+  "You are the triage agent for an elderly-care kiosk in Singapore HDB void decks. " +
+  "Read the resident's request (already translated to English) and pick ONE outcome " +
+  "and ONE agency key from the allowed lists.\n\n" +
+  "Allowed outcomes:\n" +
+  "- signpost: refer the resident to a single agency that directly handles their issue.\n" +
+  "- escalate: complex case, hand off to MP/RC volunteer with a structured Case + receipt.\n" +
+  "- ask_followup: the request is unclear; orchestrator will handle this separately, only pick if no other outcome fits.\n" +
+  "- out_of_scope: medical/legal/emergency that's outside our remit; signpost to a curated emergency hotline.\n" +
+  "- find_nearby: resident wants to find a nearby service of a category.\n\n" +
+  "Allowed agency keys (use exactly one of these, do NOT invent new keys):\n" +
+  "- hdb_essential_maintenance — lift faults, water leaks, urgent housing maintenance\n" +
+  "- hdb_branch_office — non-urgent housing matters\n" +
+  "- lta_customer_service — public transport accessibility, concession cards\n" +
+  "- transport_aid_silver_generation — transport help for elderly to medical appointments\n" +
+  "- aic_eldercare_hotline — general eldercare help, signposting, case follow-up (Agency for Integrated Care)\n" +
+  "- scdf_emergency — medical emergencies, fires, rescues (995)\n" +
+  "- police_non_emergency — police matters that aren't 999 emergencies\n" +
+  "- legal_aid_bureau — legal advice for low-income residents\n" +
+  "- family_service_centre — family / social support, mental health\n" +
+  "- silver_generation_office — wellness checks, befriender services\n" +
+  "- comcare_hotline — financial assistance for low-income\n" +
+  "- cpf_senior_hotline — CPF withdrawals, retirement\n" +
+  "- peoples_association — grassroots / community activities\n" +
+  "- active_ageing_centre — senior activities, social engagement\n" +
+  "- skillsfuture_singapore — adult learning credits\n" +
+  "- sg_digital_office_seniors_go_digital — digital literacy help\n" +
+  "- mp_meet_the_people_session — weekly MP session for complex cases\n" +
+  "- rc_visit — Residents' Committee community visit\n\n" +
+  "Tools you may select (selectedToolName field):\n" +
+  "- signpost — for outcome=signpost or out_of_scope\n" +
+  "- escalateToMpRc — for outcome=escalate\n" +
+  "- findNearby — for outcome=find_nearby\n\n" +
+  "Respond with JSON ONLY. No markdown, no commentary, no code fences. Schema:\n" +
+  '{"outcome":"<outcome>","confidence":"high"|"medium"|"low","selectedToolName":"<tool>","selectedAgencyKey":"<agency key>"}';
 
 function isMockMode(env: LlmEnv): boolean {
   if (env.LLM_MOCK === "true") return true;
@@ -90,7 +133,7 @@ function mockTriage(transcriptEnglish: string): TriageDecision {
     outcome: "out_of_scope",
     confidence: "low",
     selectedToolName: "signpost",
-    selectedAgencyKey: "aic_hotline",
+    selectedAgencyKey: "aic_eldercare_hotline",
   };
 }
 
