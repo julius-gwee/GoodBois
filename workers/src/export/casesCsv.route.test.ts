@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import app from "../index";
 
 describe("GET /export/cases.csv", () => {
-  const env = { EXPORT_TOKEN: "test-token" };
+  const env = { EXPORT_TOKEN: "test" };
 
   it("returns 401 when token is missing", async () => {
     const res = await app.request("/export/cases.csv", {}, env);
@@ -15,7 +15,7 @@ describe("GET /export/cases.csv", () => {
   });
 
   it("returns 200 with text/csv when token is correct", async () => {
-    const res = await app.request("/export/cases.csv?token=test-token", {}, env);
+    const res = await app.request("/export/cases.csv?token=test", {}, env);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toMatch(/text\/csv/);
     const body = await res.text();

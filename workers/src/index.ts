@@ -8,17 +8,19 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { TurnRequest, TurnResponse } from "./types/contracts";
+import type { ResourceFilters, RouteMode, TurnRequest, TurnResponse } from "./types/contracts";
 import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
 import { renderReceiptHtml } from "./receipt/render";
 import { casesToCsv } from "./export/casesCsv";
 import { orchestrate, type OrchestratorEnv } from "./orchestrator";
+import { findMapResources } from "./tools/findMapResources";
+import { findRoutes, type WorkerEnv } from "./tools/oneMapRouting";
 
 // Worker bindings — superset of Dev B's Env (EXPORT_TOKEN, WORKER_URL) plus
 // Lane A's AI adapter env vars.
-export type WorkerBindings = OrchestratorEnv & {
+export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
   EXPORT_TOKEN: string;
   WORKER_URL?: string;
 };
@@ -43,6 +45,28 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ ok: true, service: "goodbois-worker" }));
+
+app.get("/resources", (c) => {
+  const filters: ResourceFilters = {
+    query: c.req.query("query"),
+    category: (c.req.query("category") as ResourceFilters["category"]) ?? "all",
+    language: (c.req.query("language") as ResourceFilters["language"]) ?? "all",
+  };
+
+  return c.json({ resources: findMapResources(filters) });
+});
+
+app.post("/routes", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    destinationResourceId?: string;
+    mode?: RouteMode;
+  };
+  const destinationResourceId = body.destinationResourceId ?? "senior-corner";
+  const resource = findMapResources().find((candidate) => candidate.id === destinationResourceId);
+  const routes = await findRoutes(resource, body.mode, c.env);
+
+  return c.json({ routes });
+});
 
 app.post("/turn", async (c) => {
   let body: Partial<TurnRequest>;

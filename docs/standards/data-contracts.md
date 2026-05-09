@@ -268,14 +268,17 @@ type ResourceCategory =
   | "pickup_dropoff"
   | "equipment"
   | "digital_form_help"
-  | "caregiver_waiting_spot";
+  | "caregiver_waiting_spot"
+  | "senior_activity"
+  | "rc_centre"
+  | "clinic";
 
 type Resource = {
   id: string;
-  name: string;
+  name: string | Record<string, string>; // Kawan directory UI may use BCP-47 localized copy with English fallback.
   category: ResourceCategory;
-  description: string;
-  address: string;
+  description: string | Record<string, string>;
+  address: string | Record<string, string>;
   latitude: number;
   longitude: number;
   openingHours?: string;
@@ -424,6 +427,67 @@ type RouteSafetySession = {
   consentConfirmed: boolean;
 };
 ```
+
+## Resource Discovery API (Dev C)
+
+Frontend reads resources through the Worker when `NEXT_PUBLIC_WORKER_URL` is set, and falls back to local fixtures when it is missing or unavailable.
+
+```ts
+type ResourceFilters = {
+  query?: string;
+  category?: ResourceCategory | "all";
+  language?: DirectoryLanguage | "all";
+  requireWheelchairFriendly?: boolean;
+};
+
+type ResourceLookupResponse = {
+  resources: Resource[];
+};
+```
+
+Endpoint:
+
+```http
+GET /resources?query=&category=&language=
+```
+
+Rules:
+
+- `Resource` remains the primary map/directory entity.
+- Link to `AgencyContact` only when a place has an official agency/hotline relationship.
+- Coordinates stay WGS84 `latitude` / `longitude`; OneMap references are metadata only.
+
+## Route Lookup API (Dev C)
+
+```ts
+type RouteLookupRequest = {
+  destinationResourceId: string;
+  mode?: "walk" | "wheelchair" | "drive";
+};
+
+type RouteLookupResponse = {
+  routes: RouteOption[];
+};
+```
+
+Endpoint:
+
+```http
+POST /routes
+Content-Type: application/json
+
+{
+  "destinationResourceId": "chinatown-aac-jalan-kukoh",
+  "mode": "wheelchair"
+}
+```
+
+Rules:
+
+- Worker may call OneMap for live routing when OneMap secrets are configured.
+- If OneMap is unavailable, Worker returns seeded demo routes so the kiosk remains demoable.
+- Wheelchair routing must be labelled honestly. If Barrier-Free Access routing is not available through the Worker yet, label the output as a walking/BFA fallback, not a guaranteed wheelchair-safe route.
+- Do not store permanent route traces for anonymous kiosk users.
 
 ## Submission (NTH — low priority)
 

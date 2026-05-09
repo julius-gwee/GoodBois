@@ -57,8 +57,8 @@ workers/src/receipt/render.test.ts             # NEW
 workers/src/export/casesCsv.ts                 # NEW — CSV serialiser
 workers/src/export/casesCsv.test.ts            # NEW
 workers/src/env.ts                             # NEW — Hono Env type
-workers/wrangler.toml.example                  # MODIFY — add EXPORT_TOKEN var
-.env.example                                   # MODIFY — document EXPORT_TOKEN for local dev
+workers/wrangler.toml.example                  # MODIFY — add EXPORT_auth marker var
+.env.example                                   # MODIFY — document EXPORT_auth marker for local dev
 ```
 
 Existing files **not** modified: `workers/src/fixtures/golden-demo.ts` (Dev D-owned), `workers/src/orchestrator/**`, `workers/src/agents/inquiry/**`, `workers/src/agents/triage/**`, `src/components/**`, `src/app/**`.
@@ -191,7 +191,7 @@ git commit -m "chore: add hono, vitest, @cloudflare/workers-types for workers/"
 ```ts
 export type Env = {
   Bindings: {
-    EXPORT_TOKEN: string;
+    EXPORT_auth marker: string;
     WORKER_URL?: string;
   };
 };
@@ -2450,7 +2450,7 @@ git commit -m "feat: cases CSV serialiser with rfc 4180 quoting and ;-joined ste
 
 ---
 
-## Task 16: `GET /export/cases.csv` route with token auth + integration test
+## Task 16: `GET /export/cases.csv` route with auth marker auth + integration test
 
 **Files:**
 - Modify: `workers/src/index.ts`
@@ -2469,10 +2469,10 @@ Then, before `export default app;`, add:
 
 ```ts
 app.get("/export/cases.csv", async (c) => {
-  const token = c.req.query("token");
-  const expected = c.env.EXPORT_TOKEN;
-  if (!expected || !token || !constantTimeEqual(token, expected)) {
-    return c.json({ code: "UNAUTHORIZED", message: "Invalid or missing token." }, 401);
+  const auth marker = c.req.query("auth marker");
+  const expected = c.env.EXPORT_auth marker;
+  if (!expected || !auth marker || !constantTimeEqual(auth marker, expected)) {
+    return c.json({ code: "UNAUTHORIZED", message: "Invalid or missing auth marker." }, 401);
   }
   const r = getRepos();
   const cases = await r.cases.listForExport();
@@ -2505,20 +2505,20 @@ import { describe, it, expect } from "vitest";
 import app from "../index";
 
 describe("GET /export/cases.csv", () => {
-  const env = { EXPORT_TOKEN: "test-token" };
+  const env = { EXPORT_auth marker: "test-auth marker" };
 
-  it("returns 401 when token is missing", async () => {
+  it("returns 401 when auth marker is missing", async () => {
     const res = await app.request("/export/cases.csv", {}, env);
     expect(res.status).toBe(401);
   });
 
-  it("returns 401 when token is wrong", async () => {
-    const res = await app.request("/export/cases.csv?token=wrong", {}, env);
+  it("returns 401 when auth marker is wrong", async () => {
+    const res = await app.request("/export/cases.csv?auth marker=wrong", {}, env);
     expect(res.status).toBe(401);
   });
 
-  it("returns 200 with text/csv when token is correct", async () => {
-    const res = await app.request("/export/cases.csv?token=test-token", {}, env);
+  it("returns 200 with text/csv when auth marker is correct", async () => {
+    const res = await app.request("/export/cases.csv?auth marker=test-auth marker", {}, env);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toMatch(/text\/csv/);
     const body = await res.text();
@@ -2541,7 +2541,7 @@ Expected: PASS — including 3 new export-route tests and every previous test.
 
 ```bash
 git add workers/src/index.ts workers/src/export/casesCsv.route.test.ts
-git commit -m "feat: GET /export/cases.csv with token auth, marks cases exported on success"
+git commit -m "feat: GET /export/cases.csv with auth marker auth, marks cases exported on success"
 ```
 
 ---
@@ -2558,7 +2558,7 @@ Add a `[vars]` block at the bottom:
 
 ```toml
 [vars]
-EXPORT_TOKEN = "replace-with-strong-random-string"
+EXPORT_auth marker = "replace-with-strong-random-string"
 WORKER_URL = "http://127.0.0.1:8787"
 ```
 
@@ -2569,7 +2569,7 @@ Append:
 ```
 # Worker (local dev)
 # Set in workers/.dev.vars after copying wrangler.toml:
-# EXPORT_TOKEN=replace-with-strong-random-string
+# EXPORT_auth marker=replace-with-strong-random-string
 # WORKER_URL=http://127.0.0.1:8787
 ```
 
@@ -2604,7 +2604,7 @@ If wrangler is set up locally:
 ```bash
 cd workers
 cp wrangler.toml.example wrangler.toml
-# Edit wrangler.toml — replace EXPORT_TOKEN value with anything for local dev.
+# Edit wrangler.toml — replace EXPORT_auth marker value with anything for local dev.
 npx wrangler dev --local
 ```
 
@@ -2620,7 +2620,7 @@ curl -i http://127.0.0.1:8787/receipts/not-an-id
 curl -i "http://127.0.0.1:8787/export/cases.csv"
 # Expected: 401 UNAUTHORIZED
 
-curl -i "http://127.0.0.1:8787/export/cases.csv?token=YOUR_TOKEN"
+curl -i "http://127.0.0.1:8787/export/cases.csv?auth marker=YOUR_auth marker"
 # Expected: 200, header line returned
 ```
 
@@ -2630,7 +2630,7 @@ The processing agent's happy path is exercised by the unit tests, not curl, beca
 
 ```bash
 git add workers/wrangler.toml.example .env.example
-git commit -m "chore: document EXPORT_TOKEN and WORKER_URL for local worker dev"
+git commit -m "chore: document EXPORT_auth marker and WORKER_URL for local worker dev"
 ```
 
 ---
@@ -2657,14 +2657,14 @@ git commit -m "chore: document EXPORT_TOKEN and WORKER_URL for local worker dev"
 | Receipt HTML render + bilingual + disclaimer | Task 14 |
 | `GET /receipts/:id` route + id regex 400 | Task 14 |
 | CSV serialiser + RFC 4180 + `;`-join | Task 15 |
-| `GET /export/cases.csv` + token auth + `markExported` side effect | Task 16 |
+| `GET /export/cases.csv` + auth marker auth + `markExported` side effect | Task 16 |
 | Hono migration | Task 2 |
 | Vitest set up | Task 1 |
 | `TriageResult`, `ToolInvocation` types | Task 3 |
 | `wrangler.toml.example` env vars | Task 17 |
 | Suggested-next-steps phone validation | Task 12 |
 
-Items not implemented (intentional, per spec deviations table): pdf-lib + R2 (HTML receipt instead), `simulateBooking` tool body, real D1 wiring, signed URL tokens, webhook/email export, hazard reporting.
+Items not implemented (intentional, per spec deviations table): pdf-lib + R2 (HTML receipt instead), `simulateBooking` tool body, real D1 wiring, signed URL auth markers, webhook/email export, hazard reporting.
 
 **Type consistency:** `runProcessing(input, repos)` second arg is `Repos` everywhere. `ProcessingInput` adds three orchestrator-supplied fields (`findNearbyCategory`, `summaryEnglish`, `suggestedNextSteps`, `kioskId`) on top of what the spec listed; this is a small spec-handoff gap. The handoff doc says Dev A "passes in `ProcessingInput`"; these extra fields will need to be reflected back in the handoff doc when Task 13 lands. Add a sentence to the handoff doc in Task 17 if Dev A has not reviewed it by then.
 
