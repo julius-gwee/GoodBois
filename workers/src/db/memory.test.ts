@@ -46,61 +46,37 @@ describe("createMemoryRepos.agencies", () => {
   });
 });
 
-describe("createMemoryRepos.cases", () => {
-  beforeEach(() => _resetCounters());
-
-  it("create assigns id, createdAt, status='queued'", async () => {
-    const repos = createMemoryRepos(sampleAgencies);
-    const created = await repos.cases.create({
-      sessionId: "s1",
-      language: "zh-Hans",
-      summaryEnglish: "x",
-      transcript: "y",
-      suggestedNextSteps: [],
-      kioskId: "demo-laptop",
-    });
-    expect(created.id).toMatch(/^GBC-\d{8}-\d{3}$/);
-    expect(created.status).toBe("queued");
-    expect(created.createdAt).toBeTruthy();
-  });
-
-  it("listForExport returns queued and exported cases", async () => {
-    const repos = createMemoryRepos(sampleAgencies);
-    const a = await repos.cases.create({
-      sessionId: "s1",
-      language: "en",
-      summaryEnglish: "1",
-      transcript: "1",
-      suggestedNextSteps: [],
-      kioskId: "demo-laptop",
-    });
-    const b = await repos.cases.create({
-      sessionId: "s2",
-      language: "en",
-      summaryEnglish: "2",
-      transcript: "2",
-      suggestedNextSteps: [],
-      kioskId: "demo-laptop",
-    });
-    await repos.cases.markExported(b.id, "2026-05-09T10:00:00+08:00");
-    const list = await repos.cases.listForExport();
-    expect(list.map((c) => c.id).sort()).toEqual([a.id, b.id].sort());
-    expect(list.find((c) => c.id === b.id)?.status).toBe("exported");
-  });
-});
-
 describe("createMemoryRepos.receipts", () => {
   beforeEach(() => _resetCounters());
 
-  it("create assigns id, generatedAt, stores pdfUrl", async () => {
+  it("create assigns id, generatedAt, and persists the body", async () => {
     const repos = createMemoryRepos(sampleAgencies);
-    const r = await repos.receipts.create(
-      { sessionId: "s1", caseId: "GBC-20260509-001", language: "zh-Hans" },
-      "https://example.test/receipts/GBR-20260509-001",
-    );
+    const r = await repos.receipts.create({
+      sessionId: "s1",
+      language: "zh-Hans",
+      body: "Bedok Polyclinic — Eye Check\nWalk-in until 4pm.",
+      thingsToBring: ["NRIC", "Medisave card"],
+      signpostedAgencyKey: "alpha",
+    });
     expect(r.id).toMatch(/^GBR-\d{8}-\d{3}$/);
-    expect(r.pdfUrl).toBe("https://example.test/receipts/GBR-20260509-001");
     expect(r.generatedAt).toBeTruthy();
+    expect(r.body).toContain("Bedok Polyclinic");
+    expect(r.thingsToBring).toEqual(["NRIC", "Medisave card"]);
+    expect(r.signpostedAgencyKey).toBe("alpha");
     expect((await repos.receipts.getById(r.id))?.id).toBe(r.id);
+  });
+
+  it("supports hazardReferenceId and caseSummary fields", async () => {
+    const repos = createMemoryRepos(sampleAgencies);
+    const r = await repos.receipts.create({
+      sessionId: "s2",
+      language: "en-SG",
+      body: "Hazard report filed.",
+      thingsToBring: [],
+      caseSummary: "Resident reports broken void-deck light.",
+      hazardReferenceId: "HZ-20260509-012",
+    });
+    expect(r.caseSummary).toContain("void-deck");
+    expect(r.hazardReferenceId).toBe("HZ-20260509-012");
   });
 });
