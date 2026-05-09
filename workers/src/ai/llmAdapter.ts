@@ -202,8 +202,15 @@ function mockClassify(input: ClassifyInput): ClassifierDecision {
     };
   }
 
-  // Eye-check style query → followup once
-  if (text.includes("eye") && userTurns < 3) {
+  // Eye-check style query → followup once, but only if the resident hasn't
+  // already named a clinic type. The followup question is "polyclinic or
+  // hospital?" so we skip it if either word is already in the transcript.
+  if (
+    text.includes("eye") &&
+    !text.includes("polyclinic") &&
+    !text.includes("hospital") &&
+    userTurns < 3
+  ) {
     return {
       requestType: "ask_followup",
       followupPrompt: "Are you looking for a polyclinic or a hospital eye clinic?",
