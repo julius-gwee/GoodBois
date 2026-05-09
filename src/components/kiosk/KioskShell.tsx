@@ -142,7 +142,7 @@ const TYPE_INTERVAL_MS = 80;
 // Mock-mode walks this sequence on successive turns. Real-mode is driven by
 // the backend's TurnResponse.state and ignores these.
 const MOCK_TURN_SEQUENCE = ["followup_listening", "done_signpost"] as const;
-const DEFAULT_LANGUAGE = "zh-Hans";
+const DEFAULT_LANGUAGE = "en";
 
 export default function KioskShell() {
   const [state, setState] = useState<KioskState>("idle");
@@ -155,6 +155,11 @@ export default function KioskShell() {
   const [pulseToken, setPulseToken] = useState(0);
 
   const sessionIdRef = useRef<string | null>(null);
+  // Locked once on the first turn that produces a usable srcLang from the
+  // backend. The orchestrator already pins session.srcLang server-side, but
+  // mirroring it here keeps the UI / browser-TTS fallback consistent even if
+  // a later turn's transcript field is missing or fluctuates.
+  const sessionLangRef = useRef<string | null>(null);
   const turnIndexRef = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -185,6 +190,7 @@ export default function KioskShell() {
     setReceiptUrl(null);
     setPulseToken(0);
     sessionIdRef.current = null;
+    sessionLangRef.current = null;
     turnIndexRef.current = 0;
   }, [clearAllTimers]);
 
@@ -298,6 +304,16 @@ export default function KioskShell() {
 
       sessionIdRef.current = turnResponse.sessionId;
 
+      // Lock the session language on the first turn that surfaces one. The
+      // backend already pins this, but caching it client-side guarantees the
+      // chat tags + browser-TTS fallback stay coherent if a later response
+      // drops the transcript field.
+      const turnLang = turnResponse.transcript?.srcLang;
+      if (turnLang && !sessionLangRef.current) {
+        sessionLangRef.current = turnLang;
+      }
+      const sessionLang = sessionLangRef.current ?? DEFAULT_LANGUAGE;
+
       const stamp = Date.now();
       const userText = turnResponse.transcript?.english;
 
@@ -307,21 +323,21 @@ export default function KioskShell() {
           id: `user-${stamp}`,
           role: "user",
           text: userText,
-          language: turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
+          language: sessionLang,
         });
       }
       newEntries.push({
         id: `agent-${stamp}`,
         role: "agent",
         text: turnResponse.kioskMessage,
-        language: turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
+        language: sessionLang,
       });
 
       setMessages((prev) => [...prev, ...newEntries]);
       setTranscript(null);
 
       // Play kiosk audio (backend TTS) if present; otherwise fall back to
-      // browser speechSynthesis using the source language.
+      // browser speechSynthesis using the session source language.
       const audioToPlay = turnResponse.audioUrl;
       if (audioToPlay) {
         try {
@@ -338,10 +354,7 @@ export default function KioskShell() {
           // No-op.
         }
       } else {
-        speakViaBrowser(
-          turnResponse.kioskMessage,
-          turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
-        );
+        speakViaBrowser(turnResponse.kioskMessage, sessionLang);
       }
 
       if (turnResponse.state === "followup") {

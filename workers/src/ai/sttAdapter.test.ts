@@ -69,4 +69,54 @@ describe("sttAdapter (real-mode glue)", () => {
     expect(typeof r.transcript_en).toBe("string");
     expect(r.transcript_en.length).toBeGreaterThan(0);
   });
+
+  it("overrules Whisper when it mis-tags Romanized Malay as English (heuristic fallback)", async () => {
+    // No SEALION_API_KEY → identifyLanguage falls back to its keyword heuristic,
+    // which catches "saya / mahu / pergi / tandas" and returns "ms" even though
+    // Whisper called the audio English.
+    const env: SttEnv = {
+      AI: makeFakeAi("Pakabas saya mahu pergi ke tandas.", "en"),
+    };
+    const r = await sttAdapter({ audio: emptyAudio }, env);
+    expect(r.srcLang).toBe("ms");
+  });
+
+  it("trusts SEALion's identifyLanguage response over Whisper's hint", async () => {
+    // Stand up a fake SEALion endpoint. The first call (identifyLanguage)
+    // returns "ms"; subsequent calls (translateAdapter) echo a translation.
+    const calls: Array<{ system: string; user: string }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        messages: Array<{ role: string; content: string }>;
+      };
+      const system = body.messages.find((m) => m.role === "system")?.content ?? "";
+      const user = body.messages.find((m) => m.role === "user")?.content ?? "";
+      calls.push({ system, user });
+      const isLangId = system.includes("language identifier");
+      return new Response(
+        JSON.stringify({
+          choices: [
+            { message: { content: isLangId ? "ms" : "I want to go to the toilet." } },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const env: SttEnv = {
+        AI: makeFakeAi("Pakabas saya mahu pergi ke tandas.", "en"),
+        SEALION_API_KEY: "test-key",
+      };
+      const r = await sttAdapter({ audio: emptyAudio }, env);
+      expect(r.srcLang).toBe("ms");
+      expect(r.transcript_en).toBe("I want to go to the toilet.");
+      // Two SEALion calls: identifyLanguage then translateAdapter.
+      expect(calls.length).toBe(2);
+      expect(calls[0].system).toContain("language identifier");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

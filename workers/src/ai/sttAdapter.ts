@@ -2,15 +2,23 @@
 //
 // Speech-to-Text adapter. Returns an STTResult { transcript_en, srcLang }.
 // Per spec §3 the adapter is responsible for both transcription AND language
-// detection. Cloudflare Workers AI Whisper auto-detects; if it doesn't surface
-// the language, we fall back to a Unicode-range heuristic. If the detected
-// language is anything other than English we translate the raw transcript via
-// the SEALion translateAdapter so the orchestrator always sees English.
+// detection.
+//
+// Whisper transcribes audio, but its `language` field is unreliable for short
+// Romanized SEA inputs (e.g. Bahasa Melayu mis-tagged as English). We pass the
+// raw transcript + Whisper's guess to SEALion's `identifyLanguage`, which
+// reads the actual content. If SEALion isn't configured, we fall back to a
+// keyword/Unicode heuristic. Once we have a real srcLang, the raw transcript
+// is translated to English via SEALion so the orchestrator always sees English.
 //
 // Mock-mode walks a fixture sequence so offline demos / tests are deterministic.
 
 import type { STTResult } from "../types/contracts";
-import { translateAdapter, type TranslateEnv } from "./translateAdapter";
+import {
+  identifyLanguage,
+  translateAdapter,
+  type TranslateEnv,
+} from "./translateAdapter";
 
 export type SttInput = {
   audio: ArrayBuffer;
@@ -52,28 +60,6 @@ function isMockMode(env: SttEnv): boolean {
   return false;
 }
 
-// Whisper returns either ISO codes ("en", "zh") or full names ("English",
-// "Chinese") depending on the model variant. Normalise both to the BCP-47
-// tags we use elsewhere in the pipeline.
-function normaliseLang(lang: string): string {
-  const lower = lang.toLowerCase().trim();
-  if (!lower) return "en";
-  if (lower === "english" || lower === "en" || lower.startsWith("en-")) return "en";
-  if (lower.startsWith("zh") || lower === "chinese" || lower === "mandarin") {
-    return "zh-Hans";
-  }
-  if (lower === "ms" || lower === "malay" || lower.startsWith("ms-")) return "ms";
-  if (lower === "ta" || lower === "tamil" || lower.startsWith("ta-")) return "ta";
-  return lang;
-}
-
-// Used only when Whisper omits a language field. Crude but Singapore-realistic.
-function detectLanguageHeuristic(text: string): string {
-  if (/[一-鿿]/.test(text)) return "zh-Hans"; // CJK Unified Ideographs
-  if (/[஀-௿]/.test(text)) return "ta"; // Tamil block
-  return "en";
-}
-
 export async function sttAdapter(
   input: SttInput,
   env: SttEnv,
@@ -89,9 +75,14 @@ export async function sttAdapter(
   });
 
   const rawText = (result.text ?? "").trim();
-  const srcLang = result.language
-    ? normaliseLang(result.language)
-    : detectLanguageHeuristic(rawText);
+
+  // Whisper's `language` is a hint, not authority. SEALion reads the actual
+  // text and returns one of {en, zh-Hans, ms, ta}. Falls back to a Unicode +
+  // Malay-keyword heuristic when SEALion is mocked / unreachable.
+  const srcLang = await identifyLanguage(
+    { text: rawText, hint: result.language },
+    env,
+  );
 
   // Translate to English when the source isn't already English.
   let transcript_en = rawText;
