@@ -77,13 +77,35 @@ export function useUIStrings(): UIStrings {
 }
 
 // Backend tags arrive as BCP-47 (e.g. "zh-SG", "en-SG") but the strings table
-// only carries the four base tags. Map locale variants to their base.
+// only carries the six base tags. Map locale variants to their base.
+//
+// Hokkien (nan) and Cantonese (yue) are checked BEFORE generic zh-* so a tag
+// like "nan-Hans" doesn't get swallowed by the zh fallback.
 function normaliseToSupported(
   lang: string | null | undefined,
 ): SupportedLanguage | null {
   if (!lang) return null;
   const lower = lang.toLowerCase();
   if (lower === "en" || lower.startsWith("en-")) return "en";
+  if (
+    lower === "nan" ||
+    lower.startsWith("nan-") ||
+    lower === "hokkien" ||
+    lower === "min-nan" ||
+    lower === "zh-nan" ||
+    lower.startsWith("zh-nan-")
+  ) {
+    return "nan";
+  }
+  if (
+    lower === "yue" ||
+    lower.startsWith("yue-") ||
+    lower === "cantonese" ||
+    lower === "zh-yue" ||
+    lower.startsWith("zh-yue-")
+  ) {
+    return "yue";
+  }
   if (lower === "zh-hans" || lower === "zh" || lower.startsWith("zh-")) {
     return "zh-Hans";
   }

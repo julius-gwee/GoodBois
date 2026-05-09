@@ -70,4 +70,33 @@ export const UI_STRINGS: Record<SupportedLanguage, UIStrings> = {
     accessibilityOptions: "அணுகல் விருப்பங்கள்",
     tapToSpeak: "காவனுடன் பேச தொடவும்",
   },
+  // Hokkien (Min Nan) — Singapore's most-spoken Chinese dialect. Written form
+  // mostly tracks Standard Written Chinese with dialect-specific lexicon
+  // (会当 = can, 啥物 = what, 共 = with, 揣 = look for). Draft — review.
+  nan: {
+    listening: "咧听",
+    stop: "停",
+    cancel: "取消",
+    thinking: "咧想",
+    done: "好啊",
+    viewReceipt: "看收据",
+    cannotSpeak: "我这阵讲袂出嘴",
+    typeInstead: "改用拍字",
+    accessibilityOptions: "辅助选项",
+    tapToSpeak: "撳这粒来共 Kawan 讲",
+  },
+  // Cantonese (Yue) — written with dialect-specific characters in Simplified
+  // (嘅, 紧, 啲, 唔, 乜嘢, 撳, 睇). Draft — review.
+  yue: {
+    listening: "听紧",
+    stop: "停",
+    cancel: "取消",
+    thinking: "谂紧",
+    done: "搞掂",
+    viewReceipt: "睇收据",
+    cannotSpeak: "我而家唔讲得话",
+    typeInstead: "改用打字",
+    accessibilityOptions: "无障碍选项",
+    tapToSpeak: "撳呢度同 Kawan 倾偈",
+  },
 };

@@ -29,7 +29,12 @@ export type TranslateEnv = {
 // Languages the kiosk supports end-to-end (STT detection, translation, TTS).
 // Anything outside this set falls back to "en" so downstream stages don't blow
 // up on unknown locales.
-export const SUPPORTED_LANGS = ["en", "zh-Hans", "ms", "ta"] as const;
+//
+// `nan` (Hokkien / Min Nan) and `yue` (Cantonese / Yue) are Singapore's two
+// most-spoken Chinese dialects. SEALion can read/write them; MeloTTS doesn't
+// have dialect voices, so TTS falls back to Mandarin for both — see
+// ttsAdapter.toMeloLang.
+export const SUPPORTED_LANGS = ["en", "zh-Hans", "ms", "ta", "nan", "yue"] as const;
 export type SupportedLang = (typeof SUPPORTED_LANGS)[number];
 
 const MOCK_TRANSLATIONS: Record<string, string> = {
@@ -51,6 +56,14 @@ function isMockMode(env: TranslateEnv): boolean {
 }
 
 function bcp47ToHumanLang(code: string): string {
+  // Check dialect tags before generic zh-* so "nan" / "yue" don't get mapped
+  // to Mandarin.
+  if (code === "nan" || code.startsWith("nan-") || code === "zh-nan") {
+    return "Singaporean Hokkien (Min Nan, written in Simplified Chinese with Hokkien lexicon)";
+  }
+  if (code === "yue" || code.startsWith("yue-") || code === "zh-yue") {
+    return "Singaporean Cantonese (written in Simplified Chinese with Cantonese characters such as 嘅, 紧, 啲, 唔)";
+  }
   if (code.startsWith("zh")) return "Simplified Chinese";
   if (code.startsWith("ms")) return "Bahasa Melayu";
   if (code.startsWith("ta")) return "Tamil";
@@ -148,11 +161,14 @@ export async function identifyLanguage(
             role: "system",
             content:
               "You are a language identifier. Read the user's message and respond with " +
-              "ONE of these BCP-47 tags, and nothing else: en, zh-Hans, ms, ta. " +
+              "ONE of these BCP-47 tags, and nothing else: en, zh-Hans, ms, ta, nan, yue. " +
               "en = English (including Singlish). " +
-              "zh-Hans = Mandarin Chinese (Simplified). " +
+              "zh-Hans = standard Mandarin Chinese (Simplified). " +
               "ms = Bahasa Melayu (treat Bahasa Indonesia as ms too). " +
               "ta = Tamil. " +
+              "nan = Hokkien / Min Nan (Singaporean Hokkien lexicon: 啥物, 会当, 共, 揣, 拍, etc., or romanised Hokkien). " +
+              "yue = Cantonese / Yue (dialect particles like 嘅, 啲, 唔, 乜嘢, 紧, 撳, 睇, 點解 — distinguish from Mandarin even when written in Hanzi). " +
+              "Prefer nan or yue over zh-Hans whenever a dialect-specific marker appears. " +
               (input.hint
                 ? `An upstream auto-detector guessed "${input.hint}" — this guess is often wrong, verify against the text. `
                 : "") +
@@ -187,6 +203,28 @@ function normaliseLangTag(raw: string): SupportedLang | undefined {
   if (cleaned === "en" || cleaned.startsWith("en-") || cleaned === "english") {
     return "en";
   }
+  // Check Hokkien / Cantonese before generic zh-* so dialect tags don't get
+  // collapsed into Mandarin.
+  if (
+    cleaned === "nan" ||
+    cleaned.startsWith("nan-") ||
+    cleaned === "zh-nan" ||
+    cleaned.startsWith("zh-nan-") ||
+    cleaned === "hokkien" ||
+    cleaned === "min-nan" ||
+    cleaned === "minnan"
+  ) {
+    return "nan";
+  }
+  if (
+    cleaned === "yue" ||
+    cleaned.startsWith("yue-") ||
+    cleaned === "zh-yue" ||
+    cleaned.startsWith("zh-yue-") ||
+    cleaned === "cantonese"
+  ) {
+    return "yue";
+  }
   if (
     cleaned === "zh" ||
     cleaned === "zh-hans" ||
@@ -213,15 +251,30 @@ function normaliseLangTag(raw: string): SupportedLang | undefined {
 }
 
 // Cheap fallback when SEALion is unreachable / mocked. Script ranges catch
-// CJK and Tamil; the Malay keyword set catches Latin-script Bahasa Melayu /
-// Indonesia which would otherwise default to "en".
+// CJK and Tamil; keyword sets catch Latin-script Malay and the two Chinese
+// dialects whose written forms look like Mandarin Hanzi but use distinctive
+// dialect-only characters / words.
 const MALAY_KEYWORDS =
   /\b(saya|kamu|awak|tidak|tak|nak|mahu|pergi|tandas|tanas|boleh|bila|mana|apa|siapa|kenapa|dengan|untuk|dari|kerana|tolong|terima\s+kasih|selamat|dia|kami|kita|sudah|belum|jangan|lagi|juga|sangat|sini|sana)\b/i;
 
+// Cantonese-only characters / particles. Anything in this set is a strong
+// signal the writer is using Cantonese rather than Standard Written Chinese.
+const CANTONESE_MARKERS = /[嘅啲嘢咁喺嗰冇嚟睇諗咗梗撳唨]|乜嘢|而家|點解|做乜|唔係/u;
+
+// Hokkien (Min Nan) lexical markers. Less distinctive than Cantonese — Hokkien
+// shares more characters with Mandarin — but these compounds are dialect-only.
+const HOKKIEN_MARKERS =
+  /啥物|会当|會當|按呢|揣|歹势|歹勢|无要紧|無要緊|拍字|来共|來共|这阵|這陣|甲意|sg-?hokkien|hokkien/iu;
+
 export function heuristicLanguage(text: string, hint?: string): SupportedLang {
-  if (/[一-鿿]/.test(text)) return "zh-Hans";
+  if (/[一-鿿]/.test(text)) {
+    if (CANTONESE_MARKERS.test(text)) return "yue";
+    if (HOKKIEN_MARKERS.test(text)) return "nan";
+    return "zh-Hans";
+  }
   if (/[஀-௿]/.test(text)) return "ta";
   if (MALAY_KEYWORDS.test(text)) return "ms";
+  if (HOKKIEN_MARKERS.test(text)) return "nan"; // romanised Hokkien
   // Last resort: take the upstream hint if it maps to a supported tag.
   if (hint) {
     const fromHint = normaliseLangTag(hint);
