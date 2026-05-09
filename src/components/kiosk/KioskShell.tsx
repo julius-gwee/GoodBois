@@ -233,7 +233,9 @@ async function captureAudio(timeoutMs: number): Promise<CapturedAudio | null> {
 type KioskState = "idle" | "listening" | "thinking" | "chat" | "receipt";
 
 const IDLE_RESET_MS = 30_000;
-const SIMULATED_LISTENING_MS = 3_000;
+const SIMULATED_LISTENING_MS = 3_000; // Mock-mode hard timeout (typewriter ends here).
+const WEB_SPEECH_MAX_MS = 20_000;     // Real-mode safety net for stuck mics.
+const AUDIO_FALLBACK_MS = 6_000;      // MediaRecorder ceiling when Web Speech not supported.
 const SIMULATED_THINKING_MS = 1_500;
 const PULSE_INTERVAL_MS = 500;
 const TYPE_INTERVAL_MS = 80;
@@ -301,25 +303,32 @@ export default function KioskShell() {
       setPulseToken((t) => t + 1);
     }, PULSE_INTERVAL_MS);
 
+    let cancelled = false;
+
     if (USE_REAL_TURN) {
       capturedSpeechRef.current = null;
-      // Show the user's actual words on screen as Web Speech captures them.
       // Clear any leftover transcript so the panel starts blank under the
       // "Listening · 正在听" indicator. The setTimeout(0) wrap satisfies the
-      // React 19 react-hooks/set-state-in-effect rule (no sync setState in
-      // effect body).
-      setTimeout(() => setTranscript(null), 0);
+      // React 19 react-hooks/set-state-in-effect rule.
+      setTimeout(() => {
+        if (!cancelled) setTranscript(null);
+      }, 0);
+
       const tryWebSpeech = transcribeViaWebSpeech({
         language: DEFAULT_LANGUAGE,
-        timeoutMs: SIMULATED_LISTENING_MS,
+        timeoutMs: WEB_SPEECH_MAX_MS,
+        // Stream interim transcription onto the screen as the user speaks.
         onInterim: (interimText) => {
+          if (cancelled) return;
           setTranscript({
             original: interimText,
             language: DEFAULT_LANGUAGE,
           });
         },
       });
+
       tryWebSpeech.then(async (textResult) => {
+        if (cancelled) return;
         if (textResult && textResult.kind === "text") {
           capturedSpeechRef.current = textResult;
           // Lock the final transcript on screen so the user sees what was
@@ -328,22 +337,34 @@ export default function KioskShell() {
             original: textResult.transcript,
             language: textResult.language,
           });
-          return;
+        } else {
+          // Web Speech unsupported or returned nothing — record audio for
+          // backend STT (mock returns canned; real Whisper transcribes).
+          const audioResult = await captureAudio(AUDIO_FALLBACK_MS);
+          if (cancelled) return;
+          if (audioResult) {
+            capturedSpeechRef.current = {
+              kind: "audio",
+              base64: audioResult.base64,
+              mimeType: audioResult.mimeType,
+            };
+          }
         }
-        // Fallback: record audio for backend STT
-        const audioResult = await captureAudio(SIMULATED_LISTENING_MS);
-        if (audioResult) {
-          capturedSpeechRef.current = {
-            kind: "audio",
-            base64: audioResult.base64,
-            mimeType: audioResult.mimeType,
-          };
-        }
+        // Web Speech (or audio fallback) drives the listen→thinking
+        // transition — not a fixed timer. User talks as long as they want;
+        // ~1-2s of silence triggers natural end-of-speech detection.
+        if (!cancelled) setState("thinking");
       });
+
+      // Hard safety: if Web Speech promise never resolves (extremely rare),
+      // force-advance after the configured ceiling so the kiosk never hangs.
+      stateTimerRef.current = setTimeout(() => {
+        if (!cancelled) setState("thinking");
+      }, WEB_SPEECH_MAX_MS + 1_000);
     } else if (target) {
       // Mock-only mode: type out the canned fixture transcript so the kiosk
-      // looks alive even without real speech. Skipped when USE_REAL_TURN is on
-      // because Web Speech provides the real on-screen transcript above.
+      // looks alive without real speech. Hard timeout to thinking after the
+      // typewriter completes.
       let charIdx = 0;
       typeTimerRef.current = setInterval(() => {
         charIdx++;
@@ -360,13 +381,14 @@ export default function KioskShell() {
           language: target.language,
         });
       }, TYPE_INTERVAL_MS);
+
+      stateTimerRef.current = setTimeout(() => {
+        if (!cancelled) setState("thinking");
+      }, SIMULATED_LISTENING_MS);
     }
 
-    stateTimerRef.current = setTimeout(() => {
-      setState("thinking");
-    }, SIMULATED_LISTENING_MS);
-
     return () => {
+      cancelled = true;
       if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
       if (typeTimerRef.current) clearInterval(typeTimerRef.current);
       if (pulseTimerRef.current) clearInterval(pulseTimerRef.current);
