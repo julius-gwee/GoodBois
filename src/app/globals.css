@@ -46,6 +46,17 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Kawan warm palette utilities (Tailwind v4: --color-* maps to bg-, text-, from-, etc.) */
+  --color-soft-cream: var(--soft-cream);
+  --color-deep-linen: var(--deep-linen);
+  --color-stone-wash: var(--stone-wash);
+  --color-forest-sage: var(--forest-sage);
+  --color-leaf-green: var(--leaf-green);
+  --color-deep-terracotta: var(--deep-terracotta);
+  --color-warm-amber: var(--warm-amber);
+  --color-deep-charcoal: var(--deep-charcoal);
+  --color-body-gray: var(--body-gray);
+  --color-muted-stone: var(--muted-stone);
 }
 
 :root {
@@ -81,6 +92,17 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Kawan warm palette (added 2026-05-09 for Phase 1 home screen) */
+  --soft-cream: #F5F2EC;
+  --deep-linen: #EDEAE2;
+  --stone-wash: #DDD9CE;
+  --forest-sage: #3D7A3D;
+  --leaf-green: #5FA05F;
+  --deep-terracotta: #B8502E;
+  --warm-amber: #8C6B45;
+  --deep-charcoal: #1A1A16;
+  --body-gray: #3E3E38;
+  --muted-stone: #6B6B63;
 }
 
 .dark {
