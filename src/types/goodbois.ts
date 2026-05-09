@@ -285,3 +285,27 @@ export type TurnResponse = {
     fallbackAvailable: boolean;
   };
 };
+
+export type TriageResult = {
+  id: string;
+  sessionId: string;
+  outcome: TriageOutcome;
+  confidence: "high" | "medium" | "low";
+  selectedToolName?: string;
+  selectedAgencyKey?: string;
+  followupQuestion?: string;
+  reasoningSummary: string;
+  createdAt: string;
+};
+
+export type ToolInvocation = {
+  id: string;
+  sessionId: string;
+  toolName: string;
+  argumentsJson: string;
+  resultJson: string;
+  startedAt: string;
+  completedAt: string;
+  success: boolean;
+  errorMessage?: string;
+};
