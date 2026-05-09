@@ -86,8 +86,16 @@ export type ResourceCategory =
   | "digital_form_help"
   | "caregiver_waiting_spot"
   | "senior_activity"
+  | "active_ageing"
   | "rc_centre"
-  | "clinic";
+  | "clinic"
+  | "mps"
+  | "government_service"
+  | "community"
+  | "hawker_food"
+  | "groceries"
+  | "mall"
+  | "sports";
 
 export type ResourcePhoto = {
   id: string;
@@ -157,6 +165,45 @@ export type ResourceDetails =
       services: string[];
       appointmentRequired?: boolean;
       dialysisSupportNearby?: boolean;
+    }
+  | {
+      type: "mps";
+      mpName: string;
+      sessionInfo: string;
+      services: string[];
+    }
+  | {
+      type: "government_service";
+      agencies: string[];
+      services: string[];
+      appointmentRequired?: boolean;
+    }
+  | {
+      type: "community";
+      services: string[];
+      meetingHours?: string;
+      dementiaSupport?: boolean;
+    }
+  | {
+      type: "hawker_food";
+      foodTypes: string[];
+      marketStalls?: number;
+      foodStalls?: number;
+    }
+  | {
+      type: "groceries";
+      services: string[];
+      paymentOptions?: string[];
+    }
+  | {
+      type: "mall";
+      services: string[];
+      accessibleToilets?: boolean;
+    }
+  | {
+      type: "sports";
+      facilities: string[];
+      bookingRequired?: boolean;
     };
 
 export type Resource = {

@@ -3,13 +3,13 @@ import type { Resource } from "../types/contracts";
 import { findRoutes, type WorkerEnv } from "./oneMapRouting";
 
 const destination: Resource = {
-  id: "active-ageing-centre-jalan-kukoh",
-  name: { en: "Chinatown Active Ageing Centre (Jalan Kukoh)" },
-  category: "senior_activity",
-  description: { en: "Drop-in exercise and befriending." },
-  address: { en: "8 Jalan Kukoh" },
-  latitude: 1.287377626822412,
-  longitude: 103.8394070605943,
+  id: "servicesg-bukit-merah",
+  name: { en: "ServiceSG Centre Bukit Merah" },
+  category: "government_service",
+  description: { en: "Assisted access to government services." },
+  address: { en: "166 Bukit Merah Central, #03-3529A" },
+  latitude: 1.283092625749734,
+  longitude: 103.8176672025981,
   languages: ["en"],
   accessibilityFeatures: [{ en: "Step-free access" }],
   practicalNotes: [{ en: "Use the lift to level 4." }],
@@ -18,7 +18,7 @@ const destination: Resource = {
   confidenceLevel: "high",
   source: "seed",
   currentHazardStatus: "none",
-  details: { type: "senior_activity", activities: ["befriending"] },
+  details: { type: "government_service", agencies: ["ServiceSG"], services: ["government services"] },
   createdAt: "2026-05-09T00:00:00+08:00",
   updatedAt: "2026-05-09T00:00:00+08:00",
 };
@@ -31,8 +31,8 @@ const oneMapPayload = {
     total_distance: 220,
   },
   route_instructions: [
-    ["Left", "covered footpath", 120, "1.28718,103.83930", 90, "120m", "North", "North", "walking", "Head North On Covered Footpath"],
-    ["Destination", "footpath", 0, "1.28737,103.83940", 0, "0m", "North", "East", "walking", "You Have Arrived"],
+    ["Left", "covered footpath", 120, "1.28690,103.80820", 90, "120m", "East", "East", "walking", "Head East On Covered Footpath"],
+    ["Destination", "footpath", 0, "1.28309,103.81766", 0, "0m", "East", "South", "walking", "You Have Arrived"],
   ],
 };
 
@@ -99,7 +99,7 @@ describe("findRoutes OneMap integration", () => {
     const routes = await findRoutes(destination, "walk", oneMapEnv);
 
     expect(routes[0]).toMatchObject({
-      destinationResourceId: "active-ageing-centre-jalan-kukoh",
+      destinationResourceId: "servicesg-bukit-merah",
       mode: "walk",
       durationMinutes: 3,
       distanceMeters: 220,

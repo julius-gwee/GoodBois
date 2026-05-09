@@ -75,6 +75,7 @@ export function KawanDirectoryApp({
 
   const selectedRoutes = routesByResource[activeResource.id] ?? demoRoutes[activeResource.id] ?? Object.values(demoRoutes)[0] ?? [];
   const selectedRoute = getRouteForMode(selectedRoutes, routeMode);
+  const mapPanel = showDirections ? "directions" : showDetails ? "details" : "drawer";
 
   useEffect(() => {
     let cancelled = false;
@@ -174,6 +175,7 @@ export function KawanDirectoryApp({
         fromChat={fromChat}
         onSelectResource={selectResource}
         onBackToChat={backToChat}
+        panel={mapPanel}
       />
 
       {!showDetails && !showDirections ? (

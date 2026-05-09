@@ -18,10 +18,13 @@ const REQUIRED_CATEGORIES: AgencyCategory[] = [
 ];
 
 const ROUTEABLE_KEYS = [
-  "active_ageing_centre_jalan_kukoh",
-  "jalan_kukoh_rc",
-  "kreta_ayer_community_club",
-  "active_ageing_centre_chin_swee",
+  "queenstown_smc_mps",
+  "thong_kheng_aac_queenstown",
+  "hock_san_zone_rc",
+  "servicesg_bukit_merah",
+  "bukit_merah_polyclinic",
+  "bukit_merah_community_centre",
+  "tanjong_pagar_town_council",
 ];
 
 describe("agency seed data", () => {

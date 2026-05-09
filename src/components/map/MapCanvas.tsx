@@ -8,7 +8,12 @@ import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet
 import { getLocalizedText } from "@/lib/map/directory";
 import { kioskLocation } from "@/lib/map/fixtures";
 import { mapAdapter } from "@/lib/map/map-adapter";
-import { getRouteViewportPoints } from "@/lib/map/viewport";
+import {
+  getFocusBounds,
+  getMapViewportPadding,
+  getRouteViewportPoints,
+  type MapViewportPanel,
+} from "@/lib/map/viewport";
 import type { DirectoryLanguage, Resource, RouteOption } from "@/types/goodbois";
 import { Button } from "@/components/ui/button";
 
@@ -20,6 +25,7 @@ type MapCanvasProps = {
   fromChat: boolean;
   onSelectResource: (resource: Resource) => void;
   onBackToChat: () => void;
+  panel: MapViewportPanel;
 };
 
 const selectedIcon = new Icon({
@@ -51,6 +57,7 @@ export function MapCanvas({
   fromChat,
   onSelectResource,
   onBackToChat,
+  panel,
 }: MapCanvasProps) {
   const center = useMemo<LatLngExpression>(
     () => [mapAdapter.center.latitude, mapAdapter.center.longitude],
@@ -89,7 +96,7 @@ export function MapCanvas({
       >
         <TileLayer url={mapAdapter.tileUrl} attribution={mapAdapter.attribution} />
         <MapSizeSync />
-        <FitRouteOrFly position={selectedPosition} routePoints={routeViewportPoints} />
+        <FitRouteOrFly position={selectedPosition} routePoints={routeViewportPoints} panel={panel} />
         {routePositions ? (
           <Polyline
             positions={routePositions}
@@ -113,7 +120,7 @@ export function MapCanvas({
         ))}
       </MapContainer>
 
-      <div className="pointer-events-none absolute bottom-24 left-4 z-[500] rounded-full border border-stone-wash bg-soft-cream px-3 py-1 text-sm font-semibold text-deep-charcoal shadow">
+      <div className="pointer-events-none absolute bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-4 z-[500] rounded-full border border-stone-wash bg-soft-cream px-3 py-1 text-sm font-semibold text-deep-charcoal shadow">
         <span className="inline-flex items-center gap-2">
           <LocateFixed className="size-4 text-forest-sage" aria-hidden="true" />
           {language === "en" ? "Your location" : getLocalizedText(kioskLocation.label, language)}
@@ -135,7 +142,7 @@ export function MapCanvas({
           </Button>
         ) : null}
       </div>
-      <div className="absolute bottom-24 right-4 z-[500] rounded-lg border border-stone-wash bg-soft-cream/95 px-3 py-2 text-right text-xs font-semibold text-body-gray shadow">
+      <div className="absolute bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-4 z-[500] rounded-lg border border-stone-wash bg-soft-cream/95 px-3 py-2 text-right text-xs font-semibold text-body-gray shadow">
         <p>OneMap</p>
         <p className="text-[10px] font-medium text-muted-stone">Map data (c) Singapore Land Authority</p>
       </div>
@@ -171,24 +178,35 @@ function MapSizeSync() {
 function FitRouteOrFly({
   position,
   routePoints,
+  panel,
 }: {
   position: LatLngExpression;
   routePoints?: LatLngExpression[];
+  panel: MapViewportPanel;
 }) {
   const map = useMap();
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       map.invalidateSize();
+      const { topLeft, bottomRight } = getMapViewportPadding(window.innerWidth, window.innerHeight, panel);
       if (routePoints && routePoints.length > 1) {
-        map.fitBounds(latLngBounds(routePoints), { padding: [48, 48], maxZoom: 18 });
+        map.fitBounds(latLngBounds(routePoints), {
+          paddingTopLeft: topLeft,
+          paddingBottomRight: bottomRight,
+          maxZoom: 18,
+        });
         return;
       }
 
-      map.flyTo(position, map.getZoom(), { duration: 0.45 });
+      map.fitBounds(latLngBounds(getFocusBounds(position as [number, number])), {
+        paddingTopLeft: topLeft,
+        paddingBottomRight: bottomRight,
+        maxZoom: 18,
+      });
     }, 150);
 
     return () => window.clearTimeout(timeout);
-  }, [map, position, routePoints]);
+  }, [map, panel, position, routePoints]);
 
   return null;
 }

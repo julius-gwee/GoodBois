@@ -43,7 +43,7 @@ export function DirectionsPanel({
   const printPayload = buildRoutePrintPayload(resource, route, language);
 
   return (
-    <aside className="absolute inset-x-0 bottom-0 z-[60] max-h-[78dvh] overflow-y-auto rounded-t-2xl border border-body-gray bg-deep-charcoal p-5 text-soft-cream shadow-[0_-16px_45px_rgba(26,26,22,0.32)] lg:inset-y-6 lg:left-auto lg:right-6 lg:w-[460px] lg:rounded-2xl">
+    <aside className="absolute inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[60] max-h-[calc(78dvh-5rem)] overflow-y-auto rounded-t-2xl border border-stone-wash bg-soft-cream p-5 text-deep-charcoal shadow-[0_-16px_45px_rgba(26,26,22,0.22)] lg:inset-y-6 lg:left-auto lg:right-6 lg:w-[460px] lg:rounded-2xl">
       <div className="mb-4 flex items-center justify-between gap-3">
         <Button type="button" variant="secondary" className="min-h-11 rounded-full bg-deep-linen text-deep-charcoal hover:bg-stone-wash" onClick={onClose}>
           <ArrowLeft className="size-5" aria-hidden="true" />
@@ -57,7 +57,7 @@ export function DirectionsPanel({
         ) : null}
       </div>
 
-      <p className="text-base font-medium text-leaf-green">{t(language, "routeOptions")}</p>
+      <p className="text-base font-medium text-forest-sage">{t(language, "routeOptions")}</p>
       <h2 className="mt-1 text-3xl font-semibold leading-tight">
         {getLocalizedText(route.origin.label, language)} -&gt; {getLocalizedText(resource.name, language)}
       </h2>
@@ -71,7 +71,7 @@ export function DirectionsPanel({
             className={
               routeMode === mode
                 ? "min-h-14 rounded-full border-forest-sage bg-forest-sage text-base text-soft-cream hover:bg-leaf-green hover:text-soft-cream"
-                : "min-h-14 rounded-full border-stone-wash/30 bg-soft-cream/10 text-base text-soft-cream hover:bg-soft-cream/20 hover:text-soft-cream"
+                : "min-h-14 rounded-full border-stone-wash bg-deep-linen text-base text-deep-charcoal hover:bg-stone-wash hover:text-deep-charcoal"
             }
             aria-pressed={routeMode === mode}
             onClick={() => onRouteModeChange(mode)}
@@ -81,14 +81,14 @@ export function DirectionsPanel({
         ))}
       </div>
 
-      <section className="mt-5 rounded-xl bg-soft-cream p-4 text-deep-charcoal">
+      <section className="mt-5 rounded-xl bg-deep-linen p-4 text-deep-charcoal">
         <p className="text-lg font-semibold">{t(language, "selectedRoute")}</p>
         <div className="mt-2 flex items-end gap-4">
           <p className="text-5xl font-semibold">{route.durationMinutes}</p>
           <p className="pb-2 text-lg text-body-gray">min / {route.distanceMeters} m</p>
         </div>
-        <p className="mt-2 rounded-lg bg-deep-linen px-3 py-2 text-base font-medium text-warm-amber">
-          {route.providerLabel}
+        <p className="mt-2 text-base font-medium text-forest-sage">
+          Route source: {getRouteSourceLabel(route.providerLabel)}
         </p>
         {route.notes.map((note) => (
           <p key={getLocalizedText(note, "en")} className="mt-3 text-base leading-6 text-body-gray">
@@ -99,13 +99,13 @@ export function DirectionsPanel({
 
       <ol className="mt-5 space-y-3">
         {route.steps.map((step, index) => (
-          <li key={step.id} className="flex gap-3 rounded-xl bg-soft-cream/10 p-3">
+          <li key={step.id} className="flex gap-3 rounded-xl bg-deep-linen p-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-leaf-green font-semibold text-deep-charcoal">
               {index + 1}
             </span>
             <div>
-              <p className="text-lg leading-7">{getLocalizedText(step.instruction, language)}</p>
-              <p className="text-sm text-stone-wash">
+              <p className="text-lg leading-7 text-deep-charcoal">{getLocalizedText(step.instruction, language)}</p>
+              <p className="text-sm text-muted-stone">
                 {step.distanceMeters} m / {step.durationMinutes} min
               </p>
             </div>
@@ -129,4 +129,30 @@ export function DirectionsPanel({
       ) : null}
     </aside>
   );
+}
+
+function getRouteSourceLabel(providerLabel: string) {
+  const normalized = providerLabel.toLowerCase();
+
+  if (normalized.includes("barrier-free") || normalized.includes("bfa")) {
+    return "OneMap BFA";
+  }
+
+  if (normalized.includes("walking fallback")) {
+    return "OneMap walking fallback";
+  }
+
+  if (normalized.includes("fixture fallback")) {
+    return "Demo route";
+  }
+
+  if (normalized.includes("walking")) {
+    return "OneMap walking";
+  }
+
+  if (normalized.includes("driving")) {
+    return "OneMap driving";
+  }
+
+  return providerLabel;
 }

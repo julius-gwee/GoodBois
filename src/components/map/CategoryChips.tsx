@@ -7,12 +7,15 @@ import { cn } from "@/lib/utils";
 
 const categories: Array<ResourceCategory | "all"> = [
   "all",
-  "senior_activity",
-  "rc_centre",
+  "mps",
+  "active_ageing",
+  "government_service",
+  "community",
   "clinic",
-  "accessible_restroom",
-  "digital_form_help",
-  "pickup_dropoff",
+  "hawker_food",
+  "groceries",
+  "mall",
+  "sports",
 ];
 
 type CategoryChipsProps = {

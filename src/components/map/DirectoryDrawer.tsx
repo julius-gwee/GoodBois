@@ -33,7 +33,7 @@ export function DirectoryDrawer({
   onSelectResource,
 }: DirectoryDrawerProps) {
   return (
-    <aside className="z-[700] flex max-h-[52dvh] flex-col rounded-t-2xl border border-stone-wash bg-soft-cream shadow-[0_-14px_40px_rgba(26,26,22,0.16)] lg:fixed lg:bottom-20 lg:left-6 lg:max-h-[58dvh] lg:w-[440px] lg:rounded-2xl">
+    <aside className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[650] flex max-h-[46dvh] flex-col rounded-t-2xl border border-stone-wash bg-soft-cream shadow-[0_-14px_40px_rgba(26,26,22,0.16)] lg:bottom-20 lg:left-6 lg:right-auto lg:max-h-[58dvh] lg:w-[440px] lg:rounded-2xl">
       <div className="space-y-3 border-b border-stone-wash p-4">
         <label className="relative block">
           <span className="sr-only">{t(language, "search")}</span>

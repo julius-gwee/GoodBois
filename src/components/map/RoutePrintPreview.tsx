@@ -2,9 +2,9 @@
 
 import { X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { t } from "@/lib/map/i18n";
 import type { DirectoryLanguage, RoutePrintPayload } from "@/types/goodbois";
-import { Button } from "@/components/ui/button";
 
 type RoutePrintPreviewProps = {
   payload: RoutePrintPayload;
@@ -29,7 +29,7 @@ export function RoutePrintPreview({ payload, language, onClose }: RoutePrintPrev
         <div>
           <dt className="text-muted-stone">{t(language, "route")}</dt>
           <dd className="font-semibold">
-            {payload.durationMinutes} min · {payload.distanceMeters} m
+            {payload.durationMinutes} min / {payload.distanceMeters} m
           </dd>
         </div>
       </dl>

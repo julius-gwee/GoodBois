@@ -34,7 +34,7 @@ export function ResourceDetailsPanel({
   showPrintDetails,
 }: ResourceDetailsPanelProps) {
   return (
-    <aside className="absolute inset-x-0 bottom-0 z-50 max-h-[74dvh] overflow-y-auto rounded-t-2xl border border-stone-wash bg-soft-cream p-5 text-deep-charcoal shadow-[0_-16px_45px_rgba(26,26,22,0.22)] lg:inset-y-6 lg:left-auto lg:right-6 lg:w-[430px] lg:rounded-2xl">
+    <aside className="absolute inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 max-h-[calc(74dvh-5rem)] overflow-y-auto rounded-t-2xl border border-stone-wash bg-soft-cream p-5 text-deep-charcoal shadow-[0_-16px_45px_rgba(26,26,22,0.22)] lg:inset-y-6 lg:left-auto lg:right-6 lg:w-[430px] lg:rounded-2xl">
       <div className="mb-4 flex items-center justify-between gap-3">
         <Button type="button" variant="outline" className="min-h-11 rounded-full border-stone-wash bg-deep-linen text-deep-charcoal hover:bg-stone-wash" onClick={onClose}>
           <ArrowLeft className="size-5" aria-hidden="true" />

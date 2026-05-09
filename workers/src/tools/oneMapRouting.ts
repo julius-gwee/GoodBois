@@ -1,5 +1,5 @@
 import type { LocalizedText, Resource, RouteMode, RouteOption, RouteStep } from "../types/contracts";
-import { workerDemoRoutes } from "../fixtures/map-demo";
+import { workerDemoRoutes, workerKioskLocation } from "../fixtures/map-demo";
 
 export type WorkerEnv = {
   ONEMAP_ACCESS_TOKEN?: string;
@@ -43,13 +43,13 @@ type OneMapRouteResponse = {
 type OneMapRouteSource = "bfa" | "public" | "public-walk-fallback";
 
 const defaultKioskOrigin = {
-  latitude: 1.28741,
-  longitude: 103.83924,
+  latitude: workerKioskLocation.latitude,
+  longitude: workerKioskLocation.longitude,
   label: {
-    en: "GoodBois kiosk at Jalan Kukoh void deck",
+    en: "GoodBois kiosk at Blk 3 Jalan Bukit Merah",
     "zh-Hans": "惹兰古谷组屋楼下 GoodBois 服务亭",
-    "nan-Hant": "GoodBois kiosk at Jalan Kukoh void deck",
-    ms: "Kios GoodBois di kolong Jalan Kukoh",
+    "nan-Hant": "GoodBois kiosk at Blk 3 Jalan Bukit Merah",
+    ms: "Kios GoodBois di Blk 3 Jalan Bukit Merah",
     ta: "ஜாலான் குகோ void deck GoodBois நிலையம்",
   },
 };
