@@ -20,3 +20,7 @@ bucket_name = "goodbois-receipts"
 
 [ai]
 binding = "AI"
+
+[vars]
+EXPORT_TOKEN = "replace-with-strong-random-string"
+WORKER_URL = "http://127.0.0.1:8787"
