@@ -66,10 +66,17 @@ function getSpeechRecognitionConstructor(): (new () => any) | undefined {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 }
 
+type WebSpeechOptions = {
+  language: string;
+  timeoutMs: number;
+  // Called as the user speaks — gives partial transcription for live display.
+  onInterim?: (interimText: string) => void;
+};
+
 async function transcribeViaWebSpeech(
-  language: string,
-  timeoutMs: number,
+  options: WebSpeechOptions,
 ): Promise<CapturedSpeech | null> {
+  const { language, timeoutMs, onInterim } = options;
   const Ctor = getSpeechRecognitionConstructor();
   if (!Ctor) return null;
 
@@ -83,7 +90,9 @@ async function transcribeViaWebSpeech(
     }
     recognition.lang = language;
     recognition.continuous = false;
-    recognition.interimResults = false;
+    // Stream partial results to the caller so the kiosk can show what the
+    // user is saying live, instead of waiting until they stop speaking.
+    recognition.interimResults = onInterim !== undefined;
     recognition.maxAlternatives = 1;
 
     let settled = false;
@@ -100,11 +109,27 @@ async function transcribeViaWebSpeech(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.addEventListener("result", (event: any) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (transcript) {
-        finish({ kind: "text", transcript, language });
-      } else {
-        finish(null);
+      let interimText = "";
+      let finalText = "";
+      const results = event.results;
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const transcript = result[0]?.transcript ?? "";
+        if (result.isFinal) {
+          finalText += transcript;
+        } else {
+          interimText += transcript;
+        }
+      }
+
+      const trimmedFinal = finalText.trim();
+      if (trimmedFinal.length > 0) {
+        finish({ kind: "text", transcript: trimmedFinal, language });
+        return;
+      }
+      const trimmedInterim = interimText.trim();
+      if (onInterim && trimmedInterim.length > 0) {
+        onInterim(trimmedInterim);
       }
     });
     recognition.addEventListener("error", () => finish(null));
@@ -278,13 +303,31 @@ export default function KioskShell() {
 
     if (USE_REAL_TURN) {
       capturedSpeechRef.current = null;
-      const tryWebSpeech = transcribeViaWebSpeech(
-        DEFAULT_LANGUAGE,
-        SIMULATED_LISTENING_MS,
-      );
+      // Show the user's actual words on screen as Web Speech captures them.
+      // Clear any leftover transcript so the panel starts blank under the
+      // "Listening · 正在听" indicator. The setTimeout(0) wrap satisfies the
+      // React 19 react-hooks/set-state-in-effect rule (no sync setState in
+      // effect body).
+      setTimeout(() => setTranscript(null), 0);
+      const tryWebSpeech = transcribeViaWebSpeech({
+        language: DEFAULT_LANGUAGE,
+        timeoutMs: SIMULATED_LISTENING_MS,
+        onInterim: (interimText) => {
+          setTranscript({
+            original: interimText,
+            language: DEFAULT_LANGUAGE,
+          });
+        },
+      });
       tryWebSpeech.then(async (textResult) => {
-        if (textResult) {
+        if (textResult && textResult.kind === "text") {
           capturedSpeechRef.current = textResult;
+          // Lock the final transcript on screen so the user sees what was
+          // captured before the thinking state takes over.
+          setTranscript({
+            original: textResult.transcript,
+            language: textResult.language,
+          });
           return;
         }
         // Fallback: record audio for backend STT
@@ -297,9 +340,10 @@ export default function KioskShell() {
           };
         }
       });
-    }
-
-    if (target) {
+    } else if (target) {
+      // Mock-only mode: type out the canned fixture transcript so the kiosk
+      // looks alive even without real speech. Skipped when USE_REAL_TURN is on
+      // because Web Speech provides the real on-screen transcript above.
       let charIdx = 0;
       typeTimerRef.current = setInterval(() => {
         charIdx++;
