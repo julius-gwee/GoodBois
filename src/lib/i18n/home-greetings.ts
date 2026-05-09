@@ -32,4 +32,4 @@ export const HOME_GREETINGS: readonly HomeGreeting[] = [
     greeting: "நான் உங்களுக்கு எப்படி உதவ முடியும்?",
     cue: "என்னுடன் பேச தொடவும்.",
   },
-] as const;
+];
