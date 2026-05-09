@@ -32,12 +32,14 @@ import { runClassifier } from "../agents/classifier";
 import { runMainAgent } from "../agents/main";
 import { invokeTool, type ToolCtx } from "../tools/registry";
 import type { Repos } from "../db/repos";
+import type { HazardMailer } from "../integrations/email";
 
 export type OrchestratorEnv = SttEnv & TtsEnv & TranslateEnv & LlmEnv;
 
 export type OrchestratorDeps = {
   repos: Repos;
   workerUrl: string;
+  hazardMailer?: HazardMailer;
 };
 
 export async function orchestrate(
@@ -147,6 +149,7 @@ export async function orchestrate(
     sessionId,
     srcLang: session.srcLang,
     kioskId: session.kioskId,
+    hazardMailer: deps.hazardMailer,
     priorToolResults: {},
   };
 

@@ -14,10 +14,14 @@ import type { Repos } from "./db/repos";
 import { makeD1Repos } from "./db/d1";
 import { renderReceiptHtml } from "./receipt/render";
 import { orchestrate, type OrchestratorEnv } from "./orchestrator";
+import { makeHazardMailer } from "./integrations/email";
 
 export type WorkerBindings = OrchestratorEnv & {
   DB?: D1Database;
   WORKER_URL?: string;
+  RESEND_API_KEY?: string;
+  HAZARD_NOTIFY_EMAIL?: string;
+  HAZARD_FROM_EMAIL?: string;
 };
 
 let memoryRepos: Repos | null = null;
@@ -87,12 +91,17 @@ app.post("/turn", async (c) => {
   }
 
   const workerUrl = c.env.WORKER_URL ?? new URL(c.req.url).origin;
+  const hazardMailer = makeHazardMailer({
+    apiKey: c.env.RESEND_API_KEY,
+    recipient: c.env.HAZARD_NOTIFY_EMAIL,
+    from: c.env.HAZARD_FROM_EMAIL,
+  });
 
   try {
     const response: TurnResponse = await orchestrate(
       body as TurnRequest,
       c.env,
-      { repos: await getRepos(c.env), workerUrl },
+      { repos: await getRepos(c.env), workerUrl, hazardMailer },
     );
     return c.json(response);
   } catch (e) {
