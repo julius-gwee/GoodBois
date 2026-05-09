@@ -87,11 +87,10 @@ export async function orchestrate(
   // First STT result locks the session's source language.
   if (!session.srcLang) session.srcLang = srcLang;
 
-  session.history.push({
-    role: "user",
-    textEnglish: transcriptEn,
-    spokenAt: new Date().toISOString(),
-  });
+  // history holds *prior* turns. The classifier and main-LLM adapters
+  // append `transcriptEn` themselves as the final user message — pushing it
+  // here too would put two consecutive user-role messages into the chat,
+  // which SEALion rejects with 400.
 
   // ---------------------------------------------------------------------
   // Stage 2 — Classifier
@@ -175,12 +174,6 @@ export async function orchestrate(
   );
   const audioUrl = await synthesise(kioskMessageUserLang, session.srcLang, env);
 
-  session.history.push({
-    role: "kiosk",
-    textEnglish: decision.kioskMessage,
-    spokenAt: new Date().toISOString(),
-  });
-
   // ---------------------------------------------------------------------
   // Stage 6 — Respond + KV reset
   // ---------------------------------------------------------------------
@@ -211,11 +204,13 @@ async function handleFollowup(
   const promptUserLang = await translateForUser(followupPromptEn, srcLang, env);
   const audioUrl = await synthesise(promptUserLang, srcLang, env);
 
-  session.history.push({
-    role: "kiosk",
-    textEnglish: followupPromptEn,
-    spokenAt: new Date().toISOString(),
-  });
+  // Persist both sides of this turn so the next /turn invocation's classifier
+  // sees the full conversation context.
+  const now = new Date().toISOString();
+  session.history.push(
+    { role: "user", textEnglish: transcriptEn, spokenAt: now },
+    { role: "kiosk", textEnglish: followupPromptEn, spokenAt: now },
+  );
 
   await deps.repos.sessions.put(session);
 

@@ -100,19 +100,24 @@ async function callSealion(
   env: LlmEnv,
 ): Promise<string> {
   const baseUrl = env.SEALION_BASE_URL ?? SEALION_DEFAULT_BASE_URL;
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${env.SEALION_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: SEALION_MODEL,
-      messages,
-      max_tokens: 1024,
-      temperature: 0,
-    }),
+  const body = JSON.stringify({
+    model: SEALION_MODEL,
+    messages,
+    max_tokens: 1024,
+    temperature: 0,
   });
+
+  // One retry with a short backoff on 429 / 5xx. SEALion's free tier throttles
+  // aggressively; a single retry rescues the demo from transient blips
+  // without hiding a sustained outage.
+  let response = await sealionPost(baseUrl, body, env.SEALION_API_KEY);
+  if (response.status === 429 || response.status >= 500) {
+    const retryAfter = Number(response.headers.get("retry-after")) || 3;
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(retryAfter, 5) * 1000),
+    );
+    response = await sealionPost(baseUrl, body, env.SEALION_API_KEY);
+  }
 
   if (!response.ok) {
     throw new Error(`SEALion LLM failed: ${response.status}`);
@@ -123,6 +128,21 @@ async function callSealion(
   };
 
   return json.choices?.[0]?.message?.content ?? "";
+}
+
+function sealionPost(
+  baseUrl: string,
+  body: string,
+  apiKey: string | undefined,
+): Promise<Response> {
+  return fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
+    },
+    body,
+  });
 }
 
 async function callWorkersAi(
@@ -287,6 +307,7 @@ function mainSystemPrompt(input: DecideInput): string {
     "4. The receipt body lives in generateReceipt.args.body. Write it explicitly — agency address, walk-in hours, what to do.",
     "5. Use generateReceipt.args.language = " + JSON.stringify(input.srcLang) + ".",
     "6. Only use agency keys from the allowed list below. Do not invent new keys.",
+    "7. DO NOT populate generateReceipt.args.hazardReferenceId — the orchestrator hydrates it from the reportHazard result. DO NOT embed a hazard reference id, placeholder, or the literal '[HAZARD_REFERENCE_ID]' in the body either; the receipt template renders the reference id in its own block automatically.",
     "",
     "Allowed agency keys:",
     keys,
