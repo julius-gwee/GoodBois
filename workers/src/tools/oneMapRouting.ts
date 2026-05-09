@@ -40,21 +40,29 @@ type OneMapRouteResponse = {
   route_instructions?: OneMapRouteInstruction[];
 };
 
+type OneMapRouteSource = "bfa" | "public" | "public-walk-fallback";
+
 const defaultKioskOrigin = {
   latitude: 1.28741,
   longitude: 103.83924,
   label: {
-    en: "Kawan kiosk at Jalan Kukoh void deck",
-    "zh-Hans": "惹兰古谷组屋楼下 Kawan 服务亭",
-    "nan-Hant": "惹蘭古谷組屋樓下 Kawan 服務亭",
-    ms: "Kios Kawan di kolong Jalan Kukoh",
-    ta: "ஜாலான் குக்கோ void deck Kawan நிலையம்",
+    en: "GoodBois kiosk at Jalan Kukoh void deck",
+    "zh-Hans": "惹兰古谷组屋楼下 GoodBois 服务亭",
+    "nan-Hant": "GoodBois kiosk at Jalan Kukoh void deck",
+    ms: "Kios GoodBois di kolong Jalan Kukoh",
+    ta: "ஜாலான் குகோ void deck GoodBois நிலையம்",
   },
 };
 
 export function getFallbackRoutes(destinationResourceId: string, mode?: RouteMode): RouteOption[] {
-  const routes = workerDemoRoutes[destinationResourceId] ?? workerDemoRoutes["senior-corner"] ?? [];
-  return mode ? routes.filter((route) => route.mode === mode) : routes;
+  const routes = workerDemoRoutes[destinationResourceId] ?? Object.values(workerDemoRoutes)[0] ?? [];
+  const filteredRoutes = mode ? routes.filter((route) => route.mode === mode) : routes;
+  return filteredRoutes.map((route) => ({
+    ...route,
+    providerLabel: route.providerLabel.toLocaleLowerCase().includes("fixture fallback")
+      ? route.providerLabel
+      : `${route.providerLabel} (fixture fallback)`,
+  }));
 }
 
 export async function findRoutes(
@@ -63,12 +71,12 @@ export async function findRoutes(
   env: WorkerEnv,
 ): Promise<RouteOption[]> {
   if (!resource) {
-    return getFallbackRoutes("senior-corner", mode);
+    return getFallbackRoutes("", mode);
   }
 
   const requestedModes: RouteMode[] = mode ? [mode] : ["wheelchair", "walk", "drive"];
   const resolvedRoutes = await Promise.all(
-    requestedModes.map((routeMode) => fetchOneMapRoute(defaultKioskOrigin, resource, routeMode, env)),
+    requestedModes.map((routeMode) => resolveOneMapRoute(defaultKioskOrigin, resource, routeMode, env)),
   );
   const liveRoutes = resolvedRoutes.filter((route): route is RouteOption => Boolean(route));
 
@@ -79,10 +87,29 @@ export async function findRoutes(
   return getFallbackRoutes(resource.id, mode);
 }
 
+async function resolveOneMapRoute(
+  origin: typeof defaultKioskOrigin,
+  destination: Resource,
+  mode: RouteMode,
+  env: WorkerEnv,
+): Promise<RouteOption | undefined> {
+  if (mode !== "wheelchair") {
+    return fetchOneMapRoute(origin, destination, mode, "public", env);
+  }
+
+  const bfaRoute = await fetchOneMapRoute(origin, destination, mode, "bfa", env);
+  if (bfaRoute) {
+    return bfaRoute;
+  }
+
+  return fetchOneMapRoute(origin, destination, mode, "public-walk-fallback", env);
+}
+
 async function fetchOneMapRoute(
   origin: typeof defaultKioskOrigin,
   destination: Resource,
   mode: RouteMode,
+  source: OneMapRouteSource,
   env: WorkerEnv,
 ): Promise<RouteOption | undefined> {
   const token = await getOneMapToken(env);
@@ -91,11 +118,13 @@ async function fetchOneMapRoute(
   }
 
   const apiBaseUrl = env.ONEMAP_API_BASE_URL ?? "https://www.onemap.gov.sg";
-  const routeType = getOneMapRouteType(mode, env);
-  const url = new URL("/api/public/routingsvc/route", apiBaseUrl);
+  const routeType = getOneMapRouteType(mode, source, env);
+  const url = new URL(source === "bfa" ? "/api/bfa/routingsvc/route" : "/api/public/routingsvc/route", apiBaseUrl);
   url.searchParams.set("start", `${origin.latitude},${origin.longitude}`);
   url.searchParams.set("end", `${destination.latitude},${destination.longitude}`);
-  url.searchParams.set("routeType", routeType);
+  if (routeType) {
+    url.searchParams.set("routeType", routeType);
+  }
 
   const response = await fetch(url, {
     headers: {
@@ -129,10 +158,10 @@ async function fetchOneMapRoute(
     durationMinutes,
     distanceMeters,
     isRecommended: mode === "wheelchair",
-    providerLabel: getProviderLabel(mode, routeType),
+    providerLabel: getProviderLabel(mode, source),
     origin,
     polyline,
-    notes: getRouteNotes(mode, routeType),
+    notes: getRouteNotes(mode, source),
     steps: buildRouteSteps(payload.route_instructions, destination, durationMinutes, distanceMeters),
   };
 }
@@ -167,38 +196,42 @@ async function getOneMapToken(env: WorkerEnv): Promise<string | undefined> {
   return payload.access_token;
 }
 
-function getOneMapRouteType(mode: RouteMode, env: WorkerEnv): string {
+function getOneMapRouteType(mode: RouteMode, source: OneMapRouteSource, env: WorkerEnv): string | undefined {
+  if (source === "bfa") {
+    return undefined;
+  }
+
   if (mode === "drive") {
     return "drive";
   }
 
   if (mode === "wheelchair") {
-    return env.ONEMAP_WHEELCHAIR_ROUTE_TYPE ?? "walk";
+    return source === "public-walk-fallback" ? "walk" : (env.ONEMAP_WHEELCHAIR_ROUTE_TYPE ?? "walk");
   }
 
   return "walk";
 }
 
-function getProviderLabel(mode: RouteMode, routeType: string): string {
-  if (mode === "wheelchair" && routeType === "walk") {
-    return "OneMap walking route - BFA fallback";
+function getProviderLabel(mode: RouteMode, source: OneMapRouteSource): string {
+  if (source === "bfa") {
+    return "OneMap Barrier-Free Access route";
   }
 
-  if (mode === "wheelchair") {
-    return "OneMap Barrier-Free Access route";
+  if (source === "public-walk-fallback") {
+    return "OneMap walking fallback";
   }
 
   return mode === "drive" ? "OneMap driving route" : "OneMap walking route";
 }
 
-function getRouteNotes(mode: RouteMode, routeType: string): LocalizedText[] {
-  if (mode === "wheelchair" && routeType === "walk") {
+function getRouteNotes(mode: RouteMode, source: OneMapRouteSource): LocalizedText[] {
+  if (mode === "wheelchair" && source === "public-walk-fallback") {
     return [
       {
-        en: "OneMap live walking route shown. Barrier-Free Access coverage is not exposed in this Worker yet; confirm ramps and lifts before leaving.",
-        "zh-Hans": "正在显示 OneMap 实时步行路线。本 Worker 尚未接入无障碍路线覆盖；出发前请确认斜坡和电梯。",
-        ms: "Laluan jalan kaki OneMap dipaparkan. Liputan Barrier-Free Access belum disambungkan dalam Worker ini; sahkan tanjakan dan lif sebelum bergerak.",
-        ta: "OneMap நடப்பு நடைபாதை காட்டப்படுகிறது. Barrier-Free Access இணைப்பு இன்னும் Worker-ல் இல்லை; செல்லும் முன் சரிவு பாதை மற்றும் லிப்ட் நிலையை உறுதிசெய்யவும்.",
+        en: "OneMap Barrier-Free Access did not return a route, so a live OneMap walking fallback is shown. Confirm ramps and lifts before leaving.",
+        "zh-Hans": "OneMap 无障碍路线没有返回结果，因此显示实时步行备用路线。出发前请确认斜坡和电梯。",
+        ms: "OneMap Barrier-Free Access tidak mengembalikan laluan, jadi laluan jalan kaki OneMap dipaparkan. Sahkan tanjakan dan lif sebelum bergerak.",
+        ta: "OneMap Barrier-Free Access பாதை கிடைக்காததால், OneMap நடைபாதை மாற்றாக காட்டப்படுகிறது. செல்லும் முன் சரிவு பாதை மற்றும் லிப்ட் நிலையை உறுதிசெய்யவும்.",
       },
     ];
   }

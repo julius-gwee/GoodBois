@@ -1,6 +1,6 @@
 "use client";
 
-import { Icon, type LatLngExpression } from "leaflet";
+import { Icon, latLngBounds, type LatLngExpression } from "leaflet";
 import { LocateFixed, MessageCircle, Navigation } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
@@ -8,6 +8,7 @@ import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet
 import { getLocalizedText } from "@/lib/map/directory";
 import { kioskLocation } from "@/lib/map/fixtures";
 import { mapAdapter } from "@/lib/map/map-adapter";
+import { getRouteViewportPoints } from "@/lib/map/viewport";
 import type { DirectoryLanguage, Resource, RouteOption } from "@/types/goodbois";
 import { Button } from "@/components/ui/button";
 
@@ -66,6 +67,13 @@ export function MapCanvas({
         : [mapAdapter.center.latitude, mapAdapter.center.longitude],
     [selectedResource],
   );
+  const routeViewportPoints = useMemo<LatLngExpression[] | undefined>(
+    () =>
+      selectedRoute && selectedResource
+        ? getRouteViewportPoints(selectedRoute, selectedResource)
+        : undefined,
+    [selectedRoute, selectedResource],
+  );
 
   return (
     <section className="relative z-0 h-[100dvh] min-h-[48dvh] flex-1 overflow-hidden bg-deep-linen text-deep-charcoal">
@@ -81,7 +89,7 @@ export function MapCanvas({
       >
         <TileLayer url={mapAdapter.tileUrl} attribution={mapAdapter.attribution} />
         <MapSizeSync />
-        <FlyToSelected position={selectedPosition} />
+        <FitRouteOrFly position={selectedPosition} routePoints={routeViewportPoints} />
         {routePositions ? (
           <Polyline
             positions={routePositions}
@@ -160,16 +168,27 @@ function MapSizeSync() {
   return null;
 }
 
-function FlyToSelected({ position }: { position: LatLngExpression }) {
+function FitRouteOrFly({
+  position,
+  routePoints,
+}: {
+  position: LatLngExpression;
+  routePoints?: LatLngExpression[];
+}) {
   const map = useMap();
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       map.invalidateSize();
+      if (routePoints && routePoints.length > 1) {
+        map.fitBounds(latLngBounds(routePoints), { padding: [48, 48], maxZoom: 18 });
+        return;
+      }
+
       map.flyTo(position, map.getZoom(), { duration: 0.45 });
     }, 150);
 
     return () => window.clearTimeout(timeout);
-  }, [map, position]);
+  }, [map, position, routePoints]);
 
   return null;
 }

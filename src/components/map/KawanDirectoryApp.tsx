@@ -73,7 +73,7 @@ export function KawanDirectoryApp({
     ? selectedResource
     : (filteredResources[0] ?? selectedResource);
 
-  const selectedRoutes = routesByResource[activeResource.id] ?? demoRoutes[activeResource.id] ?? demoRoutes["senior-corner"];
+  const selectedRoutes = routesByResource[activeResource.id] ?? demoRoutes[activeResource.id] ?? Object.values(demoRoutes)[0] ?? [];
   const selectedRoute = getRouteForMode(selectedRoutes, routeMode);
 
   useEffect(() => {

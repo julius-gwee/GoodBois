@@ -19,6 +19,8 @@ export type AgencyCategory =
   | "digital_help"
   | "mp_meet_the_people"
   | "rc_visit"
+  | "town_council"
+  | "hazard_authority"
   | "other";
 
 export type AgencyContact = {
@@ -30,6 +32,9 @@ export type AgencyContact = {
   openingHours?: string;
   category: AgencyCategory;
   multilingualBlurb: Record<string, string>;
+  latitude?: number;
+  longitude?: number;
+  walkingDirectionsHint?: string;
   active: boolean;
   source: "seed" | "partner" | "official";
   updatedAt: string;

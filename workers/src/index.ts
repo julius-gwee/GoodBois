@@ -61,8 +61,22 @@ app.post("/routes", async (c) => {
     destinationResourceId?: string;
     mode?: RouteMode;
   };
-  const destinationResourceId = body.destinationResourceId ?? "senior-corner";
-  const resource = findMapResources().find((candidate) => candidate.id === destinationResourceId);
+  const resources = findMapResources();
+  const destinationResourceId = body.destinationResourceId ?? resources[0]?.id;
+  const resource = resources.find((candidate) => candidate.id === destinationResourceId);
+  if (!destinationResourceId || !resource) {
+    return c.json(
+      {
+        error: {
+          code: "RESOURCE_NOT_FOUND",
+          message: "Destination resource is not available for route rendering.",
+          fallbackAvailable: true,
+        },
+      },
+      404,
+    );
+  }
+
   const routes = await findRoutes(resource, body.mode, c.env);
 
   return c.json({ routes });

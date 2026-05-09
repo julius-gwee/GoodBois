@@ -25,12 +25,11 @@ binding = "AI"
 EXPORT_TOKEN = "dev"
 WORKER_URL = "http://127.0.0.1:8787"
 ONEMAP_API_BASE_URL = "https://www.onemap.gov.sg"
-# OneMap's public routing API documents walk/drive/cycle/pt route types.
-# Keep this as "walk" unless SLA exposes a separate BFA routeType/API credential for the team.
+# Wheelchair mode tries OneMap BFA first, then falls back to public walking.
 ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
 
 # Configure secrets with Wrangler, never in this file:
 # wrangler secret put ONEMAP_ACCESS_TOKEN
 # or
 # wrangler secret put ONEMAP_EMAIL
-# wrangler secret put ONEMAP_PASS
+# wrangler secret put ONEMAP_PASSWORD

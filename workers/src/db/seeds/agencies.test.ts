@@ -13,6 +13,15 @@ const REQUIRED_CATEGORIES: AgencyCategory[] = [
   "digital_help",
   "mp_meet_the_people",
   "rc_visit",
+  "town_council",
+  "hazard_authority",
+];
+
+const ROUTEABLE_KEYS = [
+  "active_ageing_centre_jalan_kukoh",
+  "jalan_kukoh_rc",
+  "kreta_ayer_community_club",
+  "active_ageing_centre_chin_swee",
 ];
 
 describe("agency seed data", () => {
@@ -44,6 +53,16 @@ describe("agency seed data", () => {
     for (const a of agencies) {
       expect(a.active, `${a.key} not active`).toBe(true);
       expect(a.source).toBe("seed");
+    }
+  });
+
+  it("has wayfinding coordinates and hints for routeable Dev C entries", () => {
+    for (const key of ROUTEABLE_KEYS) {
+      const agency = agencies.find((a) => a.key === key);
+      expect(agency, `${key} missing`).toBeTruthy();
+      expect(agency?.latitude, `${key} missing latitude`).toEqual(expect.any(Number));
+      expect(agency?.longitude, `${key} missing longitude`).toEqual(expect.any(Number));
+      expect(agency?.walkingDirectionsHint, `${key} missing walkingDirectionsHint`).toBeTruthy();
     }
   });
 });
