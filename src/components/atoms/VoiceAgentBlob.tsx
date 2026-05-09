@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +29,24 @@ export default function VoiceAgentBlob({
   const reducedMotion = useReducedMotion();
   const [isPressing, setIsPressing] = useState(false);
   const gradientId = useId();
+  const pressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
+    };
+  }, []);
 
   const handleClick = () => {
+    if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
     setIsPressing(true);
-    setTimeout(() => setIsPressing(false), PRESS_DURATION_MS);
+    pressTimeoutRef.current = setTimeout(
+      () => setIsPressing(false),
+      PRESS_DURATION_MS
+    );
+    // onActivate fires immediately (not after the press animation) for minimum
+    // tap-to-action latency. If a future caller replaces this UI on activate,
+    // consider delaying by PRESS_DURATION_MS.
     onActivate?.();
   };
 
@@ -54,6 +68,7 @@ export default function VoiceAgentBlob({
         className
       )}
     >
+      {/* rgba(62,62,56,...) is the --body-gray token. Update both shadows if the token changes. */}
       <motion.svg
         viewBox="0 0 200 200"
         className={cn(
