@@ -278,7 +278,7 @@ Optional for the demo; useful if a post-mortem audit is needed.
 These were part of the prior agent flow and are retained here only so old code can be located and removed.
 
 - **`TriageResult`** — replaced by `LLMTurnDecision`. Old fields (`outcome`, `confidence`, `selectedToolName`, `selectedAgencyKey`, `followupQuestion`, `reasoningSummary`) are gone.
-- **`Case`** — escalation is now expressed by `signpost` (MP / CC contact) + `generateReceipt` (case summary). The `Case` row and MP/RC CSV export are not part of the MVP demo. They may return as a post-demo audit table; do not block MVP work on them.
+- **`Case` (old shape)** — the original `Case` row tied to MP/RC CSV export is gone. Superseded by **`SessionCase`** (see above), which lands the audit-table use case with a different shape (no `summaryEnglish`, `transcript`, `residentBlock`, `status`, or `exportChannel` fields).
 - **`BookingConfirmation`** — `simulateBooking` is removed.
 
 ---
