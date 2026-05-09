@@ -441,6 +441,8 @@ This is a doc-only spec; no code changes are made by adopting this document. The
 
 `workers/src/ai/translateAdapter.ts`, `workers/src/ai/ttsAdapter.ts`, `workers/src/db/{repos,memory,ids}.ts`, Hono shell, `env.ts`, all kiosk frontend components except those listed above.
 
+> **2026-05-10 update:** D1 schema landed in `workers/migrations/0001_initial.sql` with three tables (`locations`, `cases`, `receipts`). The `cases` table is the new session-history audit log — distinct from the deprecated `Case` entity. Repo implementations live in `workers/src/db/d1/`. See `docs/standards/data-contracts.md`.
+
 ---
 
 ## 11. Implementation order (suggested)
