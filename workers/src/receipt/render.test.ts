@@ -1,47 +1,71 @@
 import { describe, it, expect } from "vitest";
 import { renderReceiptHtml } from "./render";
-import type { Receipt, Case } from "../types/contracts";
+import type { AgencyContact, Receipt } from "../types/contracts";
 
 const receipt: Receipt = {
   id: "GBR-20260509-001",
   sessionId: "s1",
-  caseId: "GBC-20260509-001",
   language: "zh-Hans",
-  pdfUrl: "https://goodbois.example/receipts/GBR-20260509-001",
+  body: "Bedok Polyclinic — Eye Check\nWalk-in until 4pm.",
+  thingsToBring: ["NRIC", "Medisave card", "current glasses"],
+  signpostedAgencyKey: "polyclinic-bedok",
   generatedAt: "2026-05-09T10:00:00+08:00",
 };
 
-const linkedCase: Case = {
-  id: "GBC-20260509-001",
-  sessionId: "s1",
-  language: "zh-Hans",
-  summaryEnglish: "Resident reports a broken lift.",
-  summaryUserLanguage: "居民报告电梯故障。",
-  transcript: "Block 123 lift broken.",
-  suggestedNextSteps: ["Call HDB hotline 1800-225-5432"],
-  kioskId: "demo-laptop",
-  status: "queued",
-  createdAt: "2026-05-09T10:00:00+08:00",
+const agency: AgencyContact = {
+  key: "polyclinic-bedok",
+  name: "Bedok Polyclinic",
+  hotline: "6555-0000",
+  address: "11 Bedok North Street 1",
+  openingHours: "Mon–Fri 8am–5pm",
+  category: "healthcare",
+  multilingualBlurb: {
+    en: "Walk-in eye checks and chronic disease care.",
+    "zh-Hans": "提供视力检查与慢性病护理。",
+  },
+  active: true,
+  source: "seed",
+  updatedAt: "2026-05-09T00:00:00+08:00",
 };
 
 describe("renderReceiptHtml", () => {
-  it("includes the receipt id, case id, and disclaimer", () => {
-    const html = renderReceiptHtml({ receipt, case: linkedCase });
-    expect(html).toContain("GBR-20260509-001");
-    expect(html).toContain("GBC-20260509-001");
-    expect(html).toContain("This is not an official agency dispatch");
-  });
-
-  it("includes both language summaries when available", () => {
-    const html = renderReceiptHtml({ receipt, case: linkedCase });
-    expect(html).toContain("Resident reports a broken lift");
-    expect(html).toContain("居民报告电梯故障");
-  });
-
-  it("renders without a case", () => {
+  it("includes the receipt id, body, and disclaimer", () => {
     const html = renderReceiptHtml({ receipt });
     expect(html).toContain("GBR-20260509-001");
+    expect(html).toContain("Bedok Polyclinic — Eye Check");
     expect(html).toContain("This is not an official agency dispatch");
+  });
+
+  it("renders the things-to-bring checklist", () => {
+    const html = renderReceiptHtml({ receipt });
+    expect(html).toContain("NRIC");
+    expect(html).toContain("Medisave card");
+    expect(html).toContain("current glasses");
+  });
+
+  it("renders an agency block when one is supplied", () => {
+    const html = renderReceiptHtml({ receipt, agency });
+    expect(html).toContain("Bedok Polyclinic");
+    expect(html).toContain("6555-0000");
+    expect(html).toContain("11 Bedok North Street 1");
+    expect(html).toContain("提供视力检查与慢性病护理");
+  });
+
+  it("renders a hazard reference id when present", () => {
+    const html = renderReceiptHtml({
+      receipt: { ...receipt, hazardReferenceId: "HZ-20260509-012" },
+    });
+    expect(html).toContain("HZ-20260509-012");
+  });
+
+  it("renders a case summary when present", () => {
+    const html = renderReceiptHtml({
+      receipt: {
+        ...receipt,
+        caseSummary: "Resident wants to sell flat; spouse refuses.",
+      },
+    });
+    expect(html).toContain("Resident wants to sell flat");
   });
 });
 

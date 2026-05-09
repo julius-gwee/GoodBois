@@ -1,7 +1,12 @@
 // workers/src/ai/llmAdapter.ts
 //
-// LLM adapter for triage. Mock-mode returns canned triage JSON based on
-// keyword heuristics. Real-mode calls Workers AI Llama-3 with JSON output.
+// LLM adapter for triage. Three backends in priority order:
+//   1. SEALion (Gemma SEA-LION v4 27B IT) when SEALION_API_KEY is set — preferred
+//      because it's natively SEA-language fluent and uses an OpenAI-compatible
+//      JSON-mode chat-completion endpoint.
+//   2. Cloudflare Workers AI Llama-3 when env.AI binding is bound.
+//   3. Mock-mode keyword heuristics when nothing else is available, or when
+//      LLM_MOCK is explicitly "true".
 
 export type LlmMessage = {
   role: "system" | "user" | "assistant";
@@ -27,6 +32,8 @@ export type LlmEnv = {
     ) => Promise<{ response?: string; result?: { response?: string } }>;
   };
   LLM_MOCK?: string;
+  SEALION_API_KEY?: string;
+  SEALION_BASE_URL?: string;
 };
 
 type CannedTriage = {
@@ -74,10 +81,16 @@ const MOCK_RESPONSES: Array<{ keywords: string[]; response: CannedTriage }> = [
   },
 ];
 
-function isMockMode(env: LlmEnv): boolean {
-  if (env.LLM_MOCK === "true") return true;
-  if (!env.AI) return true;
-  return false;
+const SEALION_DEFAULT_BASE_URL = "https://api.sea-lion.ai/v1";
+const SEALION_MODEL = "aisingapore/Gemma-SEA-LION-v4-27B-IT";
+
+type Backend = "mock" | "sealion" | "workers-ai";
+
+function pickBackend(env: LlmEnv): Backend {
+  if (env.LLM_MOCK === "true") return "mock";
+  if (env.SEALION_API_KEY) return "sealion";
+  if (env.AI) return "workers-ai";
+  return "mock";
 }
 
 function pickCannedTriage(messages: LlmMessage[]): CannedTriage {
@@ -97,16 +110,59 @@ function pickCannedTriage(messages: LlmMessage[]): CannedTriage {
   };
 }
 
-export async function llmAdapter<T = unknown>(
+function stripCodeFences(raw: string): string {
+  // LLMs sometimes wrap JSON in markdown fences. Strip them before parsing.
+  const trimmed = raw.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenceMatch) return fenceMatch[1].trim();
+  const objectMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (objectMatch) return objectMatch[0];
+  return trimmed;
+}
+
+async function callSealion<T>(
   input: LlmInput,
   env: LlmEnv
 ): Promise<LlmResult<T>> {
-  if (isMockMode(env)) {
-    const triage = pickCannedTriage(input.messages);
-    const raw = JSON.stringify(triage);
-    return { raw, parsed: triage as unknown as T };
+  const baseUrl = env.SEALION_BASE_URL ?? SEALION_DEFAULT_BASE_URL;
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${env.SEALION_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: SEALION_MODEL,
+      messages: input.messages,
+      max_tokens: input.maxTokens ?? 512,
+      temperature: 0,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`SEALion LLM failed: ${response.status}`);
   }
 
+  const json = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+
+  const raw = json.choices?.[0]?.message?.content ?? "";
+
+  let parsed: T | undefined;
+  try {
+    parsed = JSON.parse(stripCodeFences(raw)) as T;
+  } catch {
+    parsed = undefined;
+  }
+
+  return { raw, parsed };
+}
+
+async function callWorkersAi<T>(
+  input: LlmInput,
+  env: LlmEnv
+): Promise<LlmResult<T>> {
   const result = await env.AI!.run("@cf/meta/llama-3.1-8b-instruct", {
     messages: input.messages,
     max_tokens: input.maxTokens ?? 512,
@@ -115,15 +171,34 @@ export async function llmAdapter<T = unknown>(
       : undefined,
   });
 
-  const raw =
-    result.response ?? result.result?.response ?? "";
+  const raw = result.response ?? result.result?.response ?? "";
 
   let parsed: T | undefined;
   try {
-    parsed = JSON.parse(raw) as T;
+    parsed = JSON.parse(stripCodeFences(raw)) as T;
   } catch {
     parsed = undefined;
   }
 
   return { raw, parsed };
+}
+
+export async function llmAdapter<T = unknown>(
+  input: LlmInput,
+  env: LlmEnv
+): Promise<LlmResult<T>> {
+  const backend = pickBackend(env);
+
+  if (backend === "mock") {
+    const triage = pickCannedTriage(input.messages);
+    const raw = JSON.stringify(triage);
+    return { raw, parsed: triage as unknown as T };
+  }
+
+  if (backend === "sealion") {
+    return callSealion<T>(input, env);
+  }
+
+  // workers-ai
+  return callWorkersAi<T>(input, env);
 }

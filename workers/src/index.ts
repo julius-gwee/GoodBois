@@ -2,26 +2,28 @@
 //
 // GoodBois kiosk Worker entry. Hono router with:
 //   GET  /health
-//   POST /turn               (Lane A — orchestrator)
-//   GET  /receipts/:id       (Lane B — bilingual HTML)
-//   GET  /export/cases.csv   (Lane B — token-gated)
+//   POST /turn               — Phase 7: real orchestrator (currently a stub)
+//   GET  /receipts/:id       — bilingual HTML render
+//
+// Removed in the 2026-05-09 refactor (per docs/refactor/2026-05-09-llm-turn-decision.md):
+//   - GET  /resources
+//   - POST /routes
+//   - GET  /export/cases.csv
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { ResourceFilters, RouteMode, TurnRequest, TurnResponse } from "./types/contracts";
+import type { TurnRequest, TurnResponse } from "./types/contracts";
 import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
 import { renderReceiptHtml } from "./receipt/render";
-import { casesToCsv } from "./export/casesCsv";
-import { orchestrate, type OrchestratorEnv } from "./orchestrator";
-import { findMapResources } from "./tools/findMapResources";
-import { findRoutes, type WorkerEnv } from "./tools/oneMapRouting";
 
-// Worker bindings — superset of Dev B's Env (EXPORT_TOKEN, WORKER_URL) plus
-// Lane A's AI adapter env vars.
-export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
-  EXPORT_TOKEN: string;
+export type WorkerBindings = {
+  AI?: {
+    run: (model: string, input: unknown) => Promise<{ text?: string; response?: string }>;
+  };
+  SEALION_API_KEY?: string;
+  SEALION_BASE_URL?: string;
   WORKER_URL?: string;
 };
 
@@ -40,33 +42,11 @@ app.use(
   cors({
     origin: "*",
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["content-type", "x-kawan-turn-count"],
+    allowHeaders: ["content-type"],
   }),
 );
 
 app.get("/health", (c) => c.json({ ok: true, service: "goodbois-worker" }));
-
-app.get("/resources", (c) => {
-  const filters: ResourceFilters = {
-    query: c.req.query("query"),
-    category: (c.req.query("category") as ResourceFilters["category"]) ?? "all",
-    language: (c.req.query("language") as ResourceFilters["language"]) ?? "all",
-  };
-
-  return c.json({ resources: findMapResources(filters) });
-});
-
-app.post("/routes", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as {
-    destinationResourceId?: string;
-    mode?: RouteMode;
-  };
-  const destinationResourceId = body.destinationResourceId ?? "senior-corner";
-  const resource = findMapResources().find((candidate) => candidate.id === destinationResourceId);
-  const routes = await findRoutes(resource, body.mode, c.env);
-
-  return c.json({ routes });
-});
 
 app.post("/turn", async (c) => {
   let body: Partial<TurnRequest>;
@@ -85,12 +65,12 @@ app.post("/turn", async (c) => {
     );
   }
 
-  if (!body.kioskId || !body.language || !body.mode) {
+  if (!body.kioskId) {
     return c.json(
       {
         error: {
           code: "INVALID_REQUEST",
-          message: "kioskId, language, and mode are required.",
+          message: "kioskId is required.",
           fallbackAvailable: true,
         },
       },
@@ -98,41 +78,35 @@ app.post("/turn", async (c) => {
     );
   }
 
-  const turnCount = Number(c.req.header("x-kawan-turn-count") ?? "0");
-  const workerUrl = c.env.WORKER_URL ?? new URL(c.req.url).origin;
-
-  try {
-    const response: TurnResponse = await orchestrate(
-      body as TurnRequest,
-      c.env,
-      {
-        repos: getRepos(),
-        workerUrl,
-        turnCount: Number.isFinite(turnCount) ? turnCount : 0,
-      },
-    );
-    return c.json(response);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
+  if (!body.audioBase64 && !body.text) {
     return c.json(
       {
-        sessionId: body.sessionId ?? `session-${Date.now()}`,
-        state: "error",
-        kioskMessage: {
-          original: "Sorry, the kiosk hit an unexpected error.",
-          english: "Sorry, the kiosk hit an unexpected error.",
-          language: body.language,
-        },
-        nextActions: ["reset"],
         error: {
-          code: "ORCHESTRATOR_FAILED",
-          message,
+          code: "MISSING_INPUT",
+          message: "Either audioBase64 or text must be provided.",
           fallbackAvailable: true,
         },
       },
-      500,
+      400,
     );
   }
+
+  // TODO Phase 7: wire the real orchestrator (six-stage flow per spec §2).
+  // For now return a placeholder so Dev B / Dev C can integration-test their
+  // tools against the route shape.
+  const sessionId = body.sessionId ?? `session-${Date.now()}`;
+  const response: TurnResponse = {
+    sessionId,
+    state: "done",
+    transcript: { english: body.text ?? "", srcLang: "en" },
+    kioskMessage: "Orchestrator not implemented yet.",
+    error: {
+      code: "ORCHESTRATOR_NOT_IMPLEMENTED",
+      message: "POST /turn is stubbed pending Phase 7 rewrite.",
+      fallbackAvailable: true,
+    },
+  };
+  return c.json(response);
 });
 
 app.get("/receipts/:id", async (c) => {
@@ -143,38 +117,11 @@ app.get("/receipts/:id", async (c) => {
   const r = getRepos();
   const receipt = await r.receipts.getById(id);
   if (!receipt) return c.json({ code: "NOT_FOUND", message: "Receipt not found." }, 404);
-  const linkedCase = receipt.caseId
-    ? ((await r.cases.getById(receipt.caseId)) ?? undefined)
+  const agency = receipt.signpostedAgencyKey
+    ? ((await r.agencies.getByKey(receipt.signpostedAgencyKey)) ?? undefined)
     : undefined;
-  const html = renderReceiptHtml({ receipt, case: linkedCase });
+  const html = renderReceiptHtml({ receipt, agency });
   return c.html(html);
 });
-
-app.get("/export/cases.csv", async (c) => {
-  const token = c.req.query("token");
-  const expected = c.env.EXPORT_TOKEN;
-  if (!expected || !token || !constantTimeEqual(token, expected)) {
-    return c.json({ code: "UNAUTHORIZED", message: "Invalid or missing token." }, 401);
-  }
-  const r = getRepos();
-  const cases = await r.cases.listForExport();
-  const now = new Date().toISOString();
-  for (const x of cases) await r.cases.markExported(x.id, now);
-  const csv = casesToCsv(cases);
-  return new Response(csv, {
-    status: 200,
-    headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="goodbois-cases-${now.slice(0, 10)}.csv"`,
-    },
-  });
-});
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
 
 export default app;

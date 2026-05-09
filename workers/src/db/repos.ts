@@ -1,7 +1,6 @@
 import type {
   AgencyCategory,
   AgencyContact,
-  Case,
   Receipt,
   ToolInvocation,
 } from "../types/contracts";
@@ -11,11 +10,7 @@ export type AgencyListFilter = {
   activeOnly?: boolean;
 };
 
-export type NewCaseInput = Omit<Case, "id" | "createdAt" | "status" | "exportedAt"> & {
-  exportChannel?: Case["exportChannel"];
-};
-
-export type NewReceiptInput = Omit<Receipt, "id" | "generatedAt" | "pdfUrl">;
+export type NewReceiptInput = Omit<Receipt, "id" | "generatedAt">;
 
 export interface AgencyRepo {
   list(filter?: AgencyListFilter): Promise<AgencyContact[]>;
@@ -23,15 +18,8 @@ export interface AgencyRepo {
   exists(key: string): Promise<boolean>;
 }
 
-export interface CaseRepo {
-  create(input: NewCaseInput): Promise<Case>;
-  getById(id: string): Promise<Case | null>;
-  listForExport(): Promise<Case[]>;
-  markExported(id: string, at: string): Promise<void>;
-}
-
 export interface ReceiptRepo {
-  create(input: NewReceiptInput, pdfUrl: string): Promise<Receipt>;
+  create(input: NewReceiptInput): Promise<Receipt>;
   getById(id: string): Promise<Receipt | null>;
 }
 
@@ -41,7 +29,6 @@ export interface ToolInvocationRepo {
 
 export type Repos = {
   agencies: AgencyRepo;
-  cases: CaseRepo;
   receipts: ReceiptRepo;
   toolInvocations: ToolInvocationRepo;
 };

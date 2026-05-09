@@ -69,11 +69,14 @@ export async function translateAdapter(
       authorization: `Bearer ${env.SEALION_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "aisingapore/Llama-SEA-LION-v3-8B-IT",
+      model: "aisingapore/Gemma-SEA-LION-v4-27B-IT",
       messages: [
         {
           role: "system",
-          content: `Translate the user's message from ${sourceLang} to ${targetLang}. Reply with the translation only, no explanations.`,
+          content:
+            `You are a translation engine. Translate the user's message from ${sourceLang} to ${targetLang}. ` +
+            "Output ONLY the translation. No explanations. No alternatives. No markdown. No quotes around the result. " +
+            "If the input is already in the target language, output it unchanged.",
         },
         { role: "user", content: input.text },
       ],
@@ -89,6 +92,27 @@ export async function translateAdapter(
     choices?: Array<{ message?: { content?: string } }>;
   };
 
-  const translated = json.choices?.[0]?.message?.content?.trim() ?? input.text;
-  return { translated };
+  const raw = json.choices?.[0]?.message?.content?.trim() ?? input.text;
+  return { translated: stripTranslationCommentary(raw) };
+}
+
+// SEALion sometimes adds preamble like "The translation is:" or wraps the
+// result in **bold** / quotes despite system-prompt instructions. Strip those
+// so the orchestrator gets a clean string to pass to TTS / the kiosk message.
+function stripTranslationCommentary(raw: string): string {
+  let s = raw.trim();
+  // Drop a leading "**" pair if it wraps the whole content.
+  const boldMatch = s.match(/^\*\*([\s\S]+?)\*\*\s*$/);
+  if (boldMatch) s = boldMatch[1].trim();
+  // Drop straight or curly quotes wrapping the whole content.
+  const quoteMatch = s.match(/^["“'‘]([\s\S]+?)["”'’]\s*$/);
+  if (quoteMatch) s = quoteMatch[1].trim();
+  // Drop "The translation is:" / "Translation:" prefixes.
+  s = s.replace(
+    /^(?:the\s+)?(?:most\s+)?(?:common\s+|natural\s+)?(?:and\s+)?(?:natural\s+|common\s+)?translation(?:\s+is)?:\s*/i,
+    "",
+  );
+  // If the model returned multiple options on separate lines, take the first.
+  const firstLine = s.split(/\r?\n/).map((l) => l.trim()).find((l) => l.length > 0);
+  return (firstLine ?? s).trim();
 }

@@ -25,6 +25,7 @@ async function fetchTurn(payload: {
   kioskId: string;
   language: string;
   text?: string;
+  audioBase64?: string;
   turnCount: number;
 }): Promise<TurnResponse | null> {
   if (!KAWAN_API_BASE) return null;
@@ -41,6 +42,7 @@ async function fetchTurn(payload: {
         language: payload.language,
         mode: "voice",
         text: payload.text,
+        audioBase64: payload.audioBase64,
       }),
     });
     if (!res.ok) return null;
@@ -48,6 +50,159 @@ async function fetchTurn(payload: {
   } catch {
     return null;
   }
+}
+
+type CapturedAudio = { base64: string; mimeType: string };
+
+type CapturedSpeech =
+  | { kind: "text"; transcript: string; language: string }
+  | { kind: "audio"; base64: string; mimeType: string };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getSpeechRecognitionConstructor(): (new () => any) | undefined {
+  if (typeof window === "undefined") return undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any;
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+}
+
+async function transcribeViaWebSpeech(
+  language: string,
+  timeoutMs: number,
+): Promise<CapturedSpeech | null> {
+  const Ctor = getSpeechRecognitionConstructor();
+  if (!Ctor) return null;
+
+  return new Promise<CapturedSpeech | null>((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let recognition: any;
+    try {
+      recognition = new Ctor();
+    } catch {
+      return resolve(null);
+    }
+    recognition.lang = language;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    let settled = false;
+    const finish = (result: CapturedSpeech | null) => {
+      if (settled) return;
+      settled = true;
+      try {
+        recognition.stop();
+      } catch {
+        // ignore
+      }
+      resolve(result);
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.addEventListener("result", (event: any) => {
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) {
+        finish({ kind: "text", transcript, language });
+      } else {
+        finish(null);
+      }
+    });
+    recognition.addEventListener("error", () => finish(null));
+    recognition.addEventListener("end", () => finish(null));
+
+    try {
+      recognition.start();
+    } catch {
+      finish(null);
+      return;
+    }
+
+    setTimeout(() => finish(null), timeoutMs);
+  });
+}
+
+function speakViaBrowser(text: string, language: string): boolean {
+  if (typeof window === "undefined" || !window.speechSynthesis) return false;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = language;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function captureAudio(timeoutMs: number): Promise<CapturedAudio | null> {
+  if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return null;
+  }
+
+  let stream: MediaStream | null = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    return null;
+  }
+
+  const mimeType =
+    typeof MediaRecorder !== "undefined" &&
+    MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+
+  return new Promise<CapturedAudio | null>((resolve) => {
+    if (!stream) return resolve(null);
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType });
+    } catch {
+      stream.getTracks().forEach((t) => t.stop());
+      return resolve(null);
+    }
+
+    const chunks: BlobPart[] = [];
+    let settled = false;
+    const finish = (value: CapturedAudio | null) => {
+      if (settled) return;
+      settled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+      resolve(value);
+    };
+
+    recorder.addEventListener("dataavailable", (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    });
+    recorder.addEventListener("stop", async () => {
+      try {
+        const blob = new Blob(chunks, { type: mimeType });
+        const buffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        finish({ base64: btoa(binary), mimeType });
+      } catch {
+        finish(null);
+      }
+    });
+    recorder.addEventListener("error", () => finish(null));
+
+    recorder.start();
+    setTimeout(() => {
+      if (recorder.state !== "inactive") {
+        try {
+          recorder.stop();
+        } catch {
+          finish(null);
+        }
+      }
+    }, timeoutMs);
+  });
 }
 
 type KioskState = "idle" | "listening" | "thinking" | "chat" | "receipt";
@@ -76,6 +231,8 @@ export default function KioskShell() {
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const capturedSpeechRef = useRef<CapturedSpeech | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   const clearAllTimers = useCallback(() => {
     if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
@@ -119,6 +276,29 @@ export default function KioskShell() {
       setPulseToken((t) => t + 1);
     }, PULSE_INTERVAL_MS);
 
+    if (USE_REAL_TURN) {
+      capturedSpeechRef.current = null;
+      const tryWebSpeech = transcribeViaWebSpeech(
+        DEFAULT_LANGUAGE,
+        SIMULATED_LISTENING_MS,
+      );
+      tryWebSpeech.then(async (textResult) => {
+        if (textResult) {
+          capturedSpeechRef.current = textResult;
+          return;
+        }
+        // Fallback: record audio for backend STT
+        const audioResult = await captureAudio(SIMULATED_LISTENING_MS);
+        if (audioResult) {
+          capturedSpeechRef.current = {
+            kind: "audio",
+            base64: audioResult.base64,
+            mimeType: audioResult.mimeType,
+          };
+        }
+      });
+    }
+
     if (target) {
       let charIdx = 0;
       typeTimerRef.current = setInterval(() => {
@@ -160,13 +340,25 @@ export default function KioskShell() {
         TURN_SEQUENCE[Math.min(turnIndexRef.current, TURN_SEQUENCE.length - 1)];
       const mockFixture = mockTurnResponses[fixtureKey];
 
+      const speech = capturedSpeechRef.current;
       let response: TurnResponse | null = null;
       if (USE_REAL_TURN && mockFixture?.transcript) {
+        const fallbackText = mockFixture?.transcript?.original;
         response = await fetchTurn({
           sessionId: `kawan-${Date.now()}`,
           kioskId: "demo-laptop",
-          language: mockFixture.transcript.language,
-          text: mockFixture.transcript.original,
+          language:
+            speech?.kind === "text"
+              ? speech.language
+              : mockFixture?.transcript?.language ?? DEFAULT_LANGUAGE,
+          text:
+            speech?.kind === "text"
+              ? speech.transcript
+              : speech
+                ? undefined
+                : fallbackText,
+          audioBase64:
+            speech?.kind === "audio" ? speech.base64 : undefined,
           turnCount: turnIndexRef.current,
         });
       }
@@ -182,23 +374,24 @@ export default function KioskShell() {
       }
 
       const stamp = Date.now();
-      const userEntry: ChatEntry | null = fixture.transcript
+      const userText =
+        speech?.kind === "text" && speech.transcript
+          ? speech.transcript
+          : fixture.transcript?.original ?? mockFixture?.transcript?.original;
+
+      const userEntry: ChatEntry | null = userText
         ? {
             id: `user-${stamp}`,
             role: "user",
-            text: fixture.transcript.original,
-            englishText: fixture.transcript.english,
-            language: fixture.transcript.language,
+            text: userText,
+            englishText: fixture.transcript?.english,
+            language:
+              fixture.transcript?.language ??
+              (speech?.kind === "text"
+                ? speech.language
+                : DEFAULT_LANGUAGE),
           }
-        : mockFixture?.transcript
-          ? {
-              id: `user-${stamp}`,
-              role: "user",
-              text: mockFixture.transcript.original,
-              englishText: mockFixture.transcript.english,
-              language: mockFixture.transcript.language,
-            }
-          : null;
+        : null;
 
       const agentEntry: ChatEntry = {
         id: `agent-${stamp}`,
@@ -215,10 +408,35 @@ export default function KioskShell() {
         agentEntry,
       ]);
       setTranscript(null);
+
+      const audioToPlay = response?.audioUrl;
+      if (audioToPlay) {
+        try {
+          if (audioPlayerRef.current) {
+            audioPlayerRef.current.pause();
+            audioPlayerRef.current = null;
+          }
+          const player = new Audio(audioToPlay);
+          audioPlayerRef.current = player;
+          player.play().catch(() => {
+            // Autoplay blocked or invalid URL; degrade silently.
+          });
+        } catch {
+          // No-op.
+        }
+      } else if (fixture.kioskMessage) {
+        // No backend audio; use browser SpeechSynthesis.
+        speakViaBrowser(
+          fixture.kioskMessage.original,
+          fixture.kioskMessage.language,
+        );
+      }
+
       turnIndexRef.current = Math.min(
         turnIndexRef.current + 1,
         TURN_SEQUENCE.length
       );
+      capturedSpeechRef.current = null;
       setState("chat");
     };
 
@@ -229,6 +447,22 @@ export default function KioskShell() {
       if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
     };
   }, [state, resetToIdle]);
+
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch {
+          // No-op.
+        }
+      }
+    };
+  }, []);
 
   const handleBlobActivate = () => {
     if (state === "idle" || state === "chat") {

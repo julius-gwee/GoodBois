@@ -1,4 +1,4 @@
-type Prefix = "GBC" | "GBR";
+type Prefix = "GBR";
 
 const counters = new Map<string, number>();
 

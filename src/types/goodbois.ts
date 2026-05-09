@@ -1,12 +1,88 @@
-export type UtteranceMode = "voice" | "touch" | "scripted_demo";
+// src/types/goodbois.ts
+//
+// Frontend twin of workers/src/types/contracts.ts. Pipeline schemas mirror the
+// worker exactly. Map / directory types below the divider are NTH (Phase 5)
+// and only consumed by src/components/map/*.
 
-export type TriageOutcome =
+// ---------------------------------------------------------------------------
+// Pipeline (mirror of workers/src/types/contracts.ts)
+// ---------------------------------------------------------------------------
+
+export type STTResult = {
+  transcript_en: string;
+  srcLang: string;
+};
+
+export type ClassifierRequestType =
   | "signpost"
-  | "find_nearby"
-  | "simulate_booking"
-  | "ask_followup"
-  | "escalate"
-  | "out_of_scope";
+  | "report_hazard"
+  | "out_of_scope"
+  | "ask_followup";
+
+export type ClassifierDecision = {
+  requestType: ClassifierRequestType;
+  followupPrompt?: string;
+};
+
+export type MainRequestType = "signpost" | "report_hazard" | "out_of_scope";
+
+export type SignpostToolCall = {
+  name: "signpost";
+  args: { agencyKey: string };
+};
+
+export type ReportHazardToolCall = {
+  name: "reportHazard";
+  args: {
+    category: string;
+    location: string;
+    description: string;
+  };
+};
+
+export type GenerateReceiptToolCall = {
+  name: "generateReceipt";
+  args: GenerateReceiptArgs;
+};
+
+export type ToolCall =
+  | SignpostToolCall
+  | ReportHazardToolCall
+  | GenerateReceiptToolCall;
+
+export type LLMTurnDecision = {
+  requestType: MainRequestType;
+  kioskMessage: string;
+  toolCalls: ToolCall[];
+};
+
+export type GenerateReceiptArgs = {
+  body: string;
+  thingsToBring?: string[];
+  caseSummary?: string;
+  signpostedAgencyKey?: string;
+  hazardReferenceId?: string;
+  language: string;
+};
+
+export type TurnRequest = {
+  sessionId?: string;
+  kioskId: string;
+  audioBase64?: string;
+  text?: string;
+};
+
+export type TurnState = "listening" | "followup" | "done";
+
+export type TurnResponse = {
+  sessionId: string;
+  state: TurnState;
+  transcript: { english: string; srcLang: string };
+  kioskMessage: string;
+  audioUrl?: string;
+  receiptUrl?: string;
+  error?: { code: string; message: string; fallbackAvailable: boolean };
+};
 
 export type AgencyCategory =
   | "housing"
@@ -19,6 +95,8 @@ export type AgencyCategory =
   | "digital_help"
   | "mp_meet_the_people"
   | "rc_visit"
+  | "town_council"
+  | "hazard_authority"
   | "other";
 
 export type AgencyContact = {
@@ -30,37 +108,30 @@ export type AgencyContact = {
   openingHours?: string;
   category: AgencyCategory;
   multilingualBlurb: Record<string, string>;
+  latitude?: number;
+  longitude?: number;
+  walkingDirectionsHint?: string;
   active: boolean;
   source: "seed" | "partner" | "official";
   updatedAt: string;
 };
 
-export type Case = {
-  id: string;
-  sessionId: string;
-  language: string;
-  summaryEnglish: string;
-  summaryUserLanguage?: string;
-  transcript: string;
-  suggestedNextSteps: string[];
-  residentBlock?: string;
-  residentUnit?: string;
-  residentNameAlias?: string;
-  kioskId: string;
-  status: "queued" | "exported" | "received" | "closed";
-  createdAt: string;
-  exportedAt?: string;
-  exportChannel?: "csv" | "webhook" | "email";
-};
-
 export type Receipt = {
   id: string;
   sessionId: string;
-  caseId?: string;
   language: string;
-  pdfUrl: string;
+  body: string;
+  thingsToBring: string[];
+  caseSummary?: string;
+  signpostedAgencyKey?: string;
+  hazardReferenceId?: string;
   generatedAt: string;
 };
+
+// ---------------------------------------------------------------------------
+// NTH map / directory (Phase 5 — owned by Dev C). Used only by
+// src/components/map/* and src/lib/map/*.
+// ---------------------------------------------------------------------------
 
 export type DirectoryLanguage = "en" | "zh-Hans" | "nan-Hant" | "ms" | "ta";
 
@@ -233,79 +304,4 @@ export type RoutePrintPayload = {
   kioskLocation: string;
   steps: string[];
   disclaimerEnglish: string;
-};
-
-export type TurnRequest = {
-  sessionId?: string;
-  kioskId: string;
-  language: string;
-  mode: UtteranceMode;
-  text?: string;
-  audioBase64?: string;
-  scriptedStep?: "initial_request" | "followup_answer" | "accept_escalation";
-};
-
-export type TurnResponse = {
-  sessionId: string;
-  state: "listening" | "thinking" | "followup" | "response" | "receipt" | "error";
-  transcript?: {
-    original: string;
-    english?: string;
-    language: string;
-  };
-  kioskMessage: {
-    original: string;
-    english: string;
-    language: string;
-  };
-  triage?: {
-    outcome: TriageOutcome;
-    confidence: "high" | "medium" | "low";
-    selectedToolName?: string;
-      selectedAgencyKey?: string;
-      selectedResourceId?: string;
-  };
-  agencyContact?: AgencyContact;
-  nearbyResources?: Resource[];
-  routeOptions?: RouteOption[];
-  case?: Case;
-  receipt?: Receipt;
-  audioUrl?: string;
-  nextActions: Array<
-    | "listen"
-    | "type"
-    | "accept_escalation"
-    | "decline_escalation"
-    | "show_receipt"
-    | "reset"
-  >;
-  error?: {
-    code: string;
-    message: string;
-    fallbackAvailable: boolean;
-  };
-};
-
-export type TriageResult = {
-  id: string;
-  sessionId: string;
-  outcome: TriageOutcome;
-  confidence: "high" | "medium" | "low";
-  selectedToolName?: string;
-  selectedAgencyKey?: string;
-  followupQuestion?: string;
-  reasoningSummary: string;
-  createdAt: string;
-};
-
-export type ToolInvocation = {
-  id: string;
-  sessionId: string;
-  toolName: string;
-  argumentsJson: string;
-  resultJson: string;
-  startedAt: string;
-  completedAt: string;
-  success: boolean;
-  errorMessage?: string;
 };
