@@ -14,7 +14,8 @@ The app is done for the first integration checkpoint when:
 4. Escalation writes or simulates a `Case`.
 5. Receipt screen appears.
 6. CSV export exists.
-7. Demo script is rehearsable.
+7. Runtime agent roles are visible in the Worker scaffold: inquiry, triage, processing.
+8. Demo script is rehearsable.
 
 ## Golden Demo Path
 
@@ -98,6 +99,27 @@ type TurnResponse = {
 };
 ```
 
+## Runtime Agent Split
+
+Use the whiteboard model inside the Worker without widening MVP scope:
+
+- `inquiry` asks bounded follow-up questions.
+- `triage` classifies the request and chooses the outcome/tool.
+- `processing` runs the allowed workflow through curated tools.
+- `orchestrator` owns session state, translation, agent routing, tool calls, and the final `TurnResponse`.
+
+Suggested Worker layout:
+
+```text
+workers/src/orchestrator/
+workers/src/agents/inquiry/
+workers/src/agents/triage/
+workers/src/agents/processing/
+workers/src/tools/
+```
+
+Do not turn this into a passport/general-application kiosk for the hackathon MVP. Complex application processing is future scope unless it is a scripted demo-safe booking stub.
+
 ## Stage Fallback Path
 
 The scripted demo path must use the same UI states and response contract as the real path. It may bypass STT, SEALion, and live LLM calls, but it must still show:
@@ -156,8 +178,8 @@ Use these ownership lanes by default:
 
 | Lane | Agent | Owns | Avoids |
 |---|---|---|---|
-| Dev A | `accessibility-voice-agent` | `src/app`, `src/components/kiosk`, `src/components/atoms`, kiosk state, voice/touch client UX | D1 schema, receipt rendering, export adapter |
-| Dev B | `hazard-admin-agent` | `workers/src/tools`, `workers/src/db`, D1 migrations, agency seeds, receipt/export tools | Kiosk visual layout except data contract needs |
+| Dev A | `accessibility-voice-agent` | `src/app`, `src/components/kiosk`, `src/components/atoms`, kiosk state, voice/touch client UX, AI adapters, orchestrator, inquiry/triage logic | D1 schema, receipt rendering, export adapter |
+| Dev B | `hazard-admin-agent` / Tools & Cases | `workers/src/tools`, `workers/src/agents/processing`, `workers/src/db`, D1 migrations, agency seeds, receipt/export tools | Kiosk visual layout except data contract needs |
 | Dev C | `map-discovery-agent` | `src/lib/mapAdapter` research/stub, NTH resource discovery notes | MVP kiosk flow unless explicitly asked |
 | Dev D | `safety-demo-agent` | `docs/hackathon`, demo script, scripted fallback fixtures, pre-warm checklist | Core Worker tool internals unless fixing demo breakage |
 

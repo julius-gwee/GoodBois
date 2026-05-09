@@ -15,11 +15,11 @@ All UI work follows `docs/standards/ui-ux-standards.md` "Component Architecture"
 
 ## accessibility-voice-agent
 
-**Mission:** Own the voice / AI pipeline AND the kiosk frontend UX. The user-facing layer.
+**Mission:** Own the voice / AI pipeline, runtime orchestration, inquiry/triage agent logic, AND the kiosk frontend UX. The user-facing and language-understanding layer.
 
 **Owns:**
 
-- Backend (Worker): STT / TTS / translate / triage LLM clients; orchestrator; multi-turn KV session.
+- Backend (Worker): STT / TTS / translate / triage LLM clients; orchestrator; inquiry agent; triage agent; multi-turn KV session.
 - Frontend (Next.js): kiosk shell, language picker, listening state, transcript panel, response card, consent banner, idle reset.
 - Multilingual UX: language tile typography, BCP-47 tag plumbing, receipt copy in user language.
 - Voice-agent research subtask: Cloudflare/SEALion language matrix; final STT / TTS / LLM model picks.
@@ -50,10 +50,13 @@ All UI work follows `docs/standards/ui-ux-standards.md` "Component Architecture"
 
 ## hazard-admin-agent
 
-**Mission:** Own the Worker tool surface, agency directory, receipt PDF, and MP/RC case export. The "what does the kiosk actually do once it understands you" lane.
+**Mission:** Own the processing agent, Worker tool surface, agency directory, receipt PDF, and MP/RC case export. This is the "what does the kiosk actually do once it understands you" lane.
+
+The `hazard-admin-agent` name is historical from the old product. For the MVP, treat this lane as **Tools & Cases**, not literal hazard work. Hazard reporting is NTH only.
 
 **Owns:**
 
+- Processing agent: executes allowlisted workflows after triage selects the outcome.
 - Worker tools: `signpost`, `findNearby` (stub for MVP; real impl in NTH lane), `simulateBooking`, `generateReceipt`, `escalateToMpRc`.
 - D1 schema for `AgencyContact`, `Case`, `Receipt`, `BookingConfirmation`, `KioskSession`, `Utterance`, `TriageResult`, `ToolInvocation`.
 - Agency directory seed data (15–25 entries, multilingual blurbs).

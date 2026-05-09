@@ -45,6 +45,31 @@ flowchart TD
 
 The orchestrator can re-enter triage with a follow-up question (multi-turn, bounded to ~3 follow-ups) before the response leaves the Worker.
 
+## Runtime Agent Model
+
+The Worker uses the whiteboard's agent split internally while keeping the MVP narrow:
+
+```mermaid
+flowchart LR
+  UI["Kiosk UI\nwarm/calm voice + text"]
+  Turn["POST /turn"]
+  Orc["Runtime Orchestrator"]
+  Inquiry["Inquiry Agent\nbounded follow-ups"]
+  Triage["Triaging Agent\noutcome + tool choice"]
+  Processing["Processing Agent\nallowed workflows"]
+  Tools["Allowlisted Tools\nsignpost, escalate, receipt, booking stub"]
+  Response["TurnResponse\ntext card + TTS + receipt"]
+
+  UI --> Turn --> Orc
+  Orc --> Inquiry
+  Orc --> Triage
+  Orc --> Processing
+  Processing --> Tools
+  Tools --> Orc --> Response --> UI
+```
+
+These agents are orchestration roles, not a broad general-government assistant. The MVP still only handles eldercare triage, verified signposting, MP/RC escalation, receipt generation, and demo-safe simulated booking.
+
 ## Core Modules
 
 ### Kiosk Voice Pipeline (MVP)
@@ -66,6 +91,16 @@ Responsibilities:
 - Apply bounded follow-ups when the request is underspecified (≤3).
 - Translate the final response back to the user's language.
 - Log every utterance and tool invocation in D1 for the receipt + MP/RC case.
+
+### Runtime Agents (MVP)
+
+Responsibilities:
+
+- `inquiry` asks short follow-up questions when required details are missing.
+- `triage` selects the outcome and tool name from the allowlisted surface.
+- `processing` executes the selected tool workflow and validates outputs before they become a response, case, receipt, or export.
+
+The runtime agents live under `workers/src/agents/`; tools stay under `workers/src/tools/`.
 
 ### Signposting + Booking Tools (MVP)
 

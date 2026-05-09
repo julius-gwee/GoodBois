@@ -8,12 +8,12 @@ Let four developers and multiple AI agents work concurrently on **GoodBois** —
 
 | Lane | Owner | Scope | Primary Files |
 | --- | --- | --- | --- |
-| A | `accessibility-voice-agent` | Voice pipeline (Worker AI clients + orchestrator) **and** kiosk frontend UX (shell, listening state, language picker, accessibility, multilingual) | `workers/src/orchestrator/*`, `workers/src/ai/*`, `src/components/kiosk/*`, `src/components/atoms/*`, `src/app/*` |
-| B | `hazard-admin-agent` | Worker tool surface (`signpost`, `findNearby` MVP stub, `simulateBooking`, `generateReceipt`, `escalateToMpRc`), agency directory, receipt PDF, MP/RC export | `workers/src/tools/*`, `workers/src/db/*`, `workers/src/pdf/*`, `workers/migrations/*` |
+| A | `accessibility-voice-agent` | Voice pipeline, AI adapters, runtime orchestrator, inquiry/triage agent logic, and kiosk frontend UX | `workers/src/orchestrator/*`, `workers/src/agents/inquiry/*`, `workers/src/agents/triage/*`, `workers/src/ai/*`, `src/components/kiosk/*`, `src/components/atoms/*`, `src/app/*` |
+| B | `hazard-admin-agent` / Tools & Cases | Processing agent, Worker tool surface (`signpost`, `findNearby` MVP stub, `simulateBooking`, `generateReceipt`, `escalateToMpRc`), agency directory, receipt PDF, MP/RC export | `workers/src/agents/processing/*`, `workers/src/tools/*`, `workers/src/db/*`, `workers/src/pdf/*`, `workers/migrations/*` |
 | C | `map-discovery-agent` | NTH map + resource discovery + OneMap Barrier-Free wheelchair-friendly routing | `src/components/map/*`, `workers/src/tools/findNearby.ts` (real impl, replacing the MVP stub) |
 | D | `safety-demo-agent` | End-to-end demo orchestration, scripted-fallback path, pre-warm checklist; route safety / Grab handoff (NTH low priority) | `src/demo/*`, `src/components/safety/*` (NTH) |
 
-The path layout (`workers/`, `src/components/kiosk/`, etc.) is the target post-pivot layout; the Cloudflare Worker tree under `workers/` does not yet exist and will be created as part of Phase 1 of `docs/hackathon/mvp-execution-plan.md`. The legacy FastAPI tree in `server/` is scheduled for decommission and should not be extended.
+The path layout (`workers/`, `workers/src/agents/`, `src/components/kiosk/`, etc.) is the active post-pivot layout. The legacy FastAPI/Supabase scaffold has been removed and must not be reintroduced.
 
 ## Daily Hackathon Rhythm
 
