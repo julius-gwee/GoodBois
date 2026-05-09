@@ -19,6 +19,7 @@ import type { Repos } from "./db/repos";
 import { makeD1Repos } from "./db/d1";
 import { renderReceiptHtml } from "./receipt/render";
 import { makeHazardMailer } from "./integrations/email";
+import { reportHazard } from "./tools/reportHazard";
 
 export type WorkerBindings = {
   AI?: {
@@ -124,6 +125,71 @@ app.post("/turn", async (c) => {
     },
   };
   return c.json(response);
+});
+
+// DEV-ONLY: trigger reportHazard directly to verify the email path before
+// the Phase 7 orchestrator wires it through /turn. Remove or gate behind
+// an env flag before production.
+//
+// This route AWAITS the mailer call (bypassing the fire-and-forget pattern)
+// so any Resend API error surfaces in the response — useful for debugging.
+app.post("/dev/test-hazard", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Partial<{
+    category: string;
+    location: string;
+    description: string;
+    sessionId: string;
+    srcLang: string;
+  }>;
+  const hazardMailer = makeHazardMailer({
+    apiKey: c.env.RESEND_API_KEY,
+    recipient: c.env.HAZARD_NOTIFY_EMAIL,
+    from: c.env.HAZARD_FROM_EMAIL,
+  });
+
+  if (!hazardMailer) {
+    return c.json(
+      {
+        ok: false,
+        error: "MAILER_NOT_CONFIGURED",
+        recipient: c.env.HAZARD_NOTIFY_EMAIL ?? null,
+        hasApiKey: Boolean(c.env.RESEND_API_KEY),
+      },
+      500,
+    );
+  }
+
+  const referenceId = `HZ-TEST-${Date.now()}`;
+  const input = {
+    category: body.category ?? "lighting",
+    location: body.location ?? "Block 123 void deck (test)",
+    description: body.description ?? "Test hazard report — please ignore",
+    referenceId,
+    routedTo: "town-council",
+    sessionId: body.sessionId ?? `test-${Date.now()}`,
+    srcLang: body.srcLang ?? "en-SG",
+  };
+
+  try {
+    await hazardMailer(input);
+    return c.json({
+      ok: true,
+      referenceId,
+      recipient: c.env.HAZARD_NOTIFY_EMAIL ?? null,
+    });
+  } catch (e) {
+    const err = e as Error;
+    console.error("[/dev/test-hazard] mailer error:", err);
+    return c.json(
+      {
+        ok: false,
+        error: "MAILER_FAILED",
+        message: err.message,
+        recipient: c.env.HAZARD_NOTIFY_EMAIL ?? null,
+      },
+      500,
+    );
+  }
 });
 
 app.get("/receipts/:id", async (c) => {
