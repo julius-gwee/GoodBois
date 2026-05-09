@@ -1,16 +1,10 @@
-// D1 row shapes (snake_case columns) and domain types for the new
-// post-refactor schema. Lives in its own folder so it doesn't collide
-// with the legacy Case/Receipt types in ../../types/contracts.ts —
-// those will be deleted when the orchestrator refactor lands.
-
-import type { AgencyContact } from "../../types/contracts";
+// D1 row shapes (snake_case columns) and SessionCase domain types.
+// Row types stay in sync with migrations/0001_initial.sql columns.
+// Location and Receipt domain types come from ../../types/contracts directly.
 
 // =========================================================================
-// Domain types (camelCase) — what app code sees.
+// SessionCase domain types (camelCase) — what app code sees.
 // =========================================================================
-
-/** Alias: the locations table holds AgencyContact rows. */
-export type Location = AgencyContact;
 
 export type SessionCaseRequestType = "signpost" | "report_hazard" | "out_of_scope";
 
@@ -38,18 +32,6 @@ export type SessionCase = {
   hazardReferenceId?: string;
   signpostedAgencyKey?: string;
   createdAt: string;         // ISO 8601
-};
-
-export type SessionReceipt = {
-  id: string;                // "GBR-20260510-001"
-  sessionId: string;
-  language: string;          // BCP-47
-  body: string;              // English body
-  thingsToBring: string[];
-  caseSummary?: string;
-  signpostedAgencyKey?: string;
-  hazardReferenceId?: string;
-  generatedAt: string;       // ISO 8601
 };
 
 // =========================================================================
@@ -89,7 +71,7 @@ export type SessionCaseRow = {
   created_at: string;
 };
 
-export type SessionReceiptRow = {
+export type ReceiptRow = {
   id: string;
   session_id: string;
   language: string;
