@@ -1,12 +1,13 @@
 // workers/src/orchestrator/index.ts
 //
 // Runtime orchestrator for the GoodBois kiosk. Coordinates STT, translation,
-// inquiry agent, triage agent, processing (Dev B stub), TTS, and final
-// TurnResponse assembly.
+// inquiry agent, triage agent, processing (Dev B's runProcessing), TTS, and
+// final TurnResponse assembly.
 
 import type {
   AgencyContact,
   TriageOutcome,
+  TriageResult,
   TurnRequest,
   TurnResponse,
 } from "../types/contracts";
@@ -15,21 +16,30 @@ import { ttsAdapter, type TtsEnv } from "../ai/ttsAdapter";
 import { translateAdapter, type TranslateEnv } from "../ai/translateAdapter";
 import { type LlmEnv } from "../ai/llmAdapter";
 import { runInquiry } from "../agents/inquiry";
-import { runTriage, type TriageResult } from "../agents/triage";
+import { runTriage, type TriageDecision } from "../agents/triage";
 import {
-  runProcessingStub,
+  runProcessing,
   type ProcessingOutput,
-} from "./runProcessingStub";
+} from "../agents/processing";
+import type { Repos } from "../db/repos";
 
 export type OrchestratorEnv = SttEnv & TtsEnv & TranslateEnv & LlmEnv;
+
+export type OrchestratorDeps = {
+  repos: Repos;
+  workerUrl: string;
+  turnCount?: number;
+  kioskId?: string;
+};
 
 export async function orchestrate(
   req: TurnRequest,
   env: OrchestratorEnv,
-  turnCount: number = 0
+  deps: OrchestratorDeps,
 ): Promise<TurnResponse> {
   const sessionId = req.sessionId ?? `session-${Date.now()}`;
   const userLang = req.language;
+  const turnCount = deps.turnCount ?? 0;
 
   // 1. Resolve transcript (STT or text input)
   let transcriptOriginal: string;
@@ -48,7 +58,7 @@ export async function orchestrate(
       sessionId,
       userLang,
       "MISSING_INPUT",
-      "Either audioBase64 or text must be provided."
+      "Either audioBase64 or text must be provided.",
     );
   }
 
@@ -60,7 +70,7 @@ export async function orchestrate(
     try {
       const t = await translateAdapter(
         { text: transcriptOriginal, from: userLang, to: "en" },
-        env
+        env,
       );
       transcriptEnglish = t.translated;
     } catch (e) {
@@ -71,7 +81,7 @@ export async function orchestrate(
   // 3. Inquiry — does the kiosk need to ask one more question?
   const inquiry = await runInquiry(
     { transcriptEnglish, turnCount, language: userLang },
-    env
+    env,
   );
 
   if (inquiry.kind === "ask_followup") {
@@ -81,7 +91,7 @@ export async function orchestrate(
         : (
             await translateAdapter(
               { text: inquiry.question, from: "en", to: userLang },
-              env
+              env,
             )
           ).translated;
 
@@ -103,16 +113,33 @@ export async function orchestrate(
     };
   }
 
-  // 4. Triage
-  const triage: TriageResult = await runTriage(
+  // 4. Triage — get a decision, then wrap into a full audit row
+  const decision: TriageDecision = await runTriage(
     { transcriptEnglish, language: userLang },
-    env
+    env,
   );
+  const triage: TriageResult = {
+    id: `tri-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    sessionId,
+    outcome: decision.outcome,
+    confidence: decision.confidence,
+    selectedToolName: decision.selectedToolName,
+    selectedAgencyKey: decision.selectedAgencyKey,
+    reasoningSummary: "auto",
+    createdAt: new Date().toISOString(),
+  };
 
-  // 5. Processing (Dev B stub)
-  const processing = await runProcessingStub(
-    { sessionId, language: userLang, triage, transcriptEnglish },
-    env
+  // 5. Processing — Dev B's allowlisted tool dispatch
+  const processing: ProcessingOutput = await runProcessing(
+    {
+      sessionId,
+      language: userLang,
+      triage,
+      transcriptEnglish,
+      workerUrl: deps.workerUrl,
+      kioskId: deps.kioskId,
+    },
+    deps.repos,
   );
 
   if (processing.error) {
@@ -121,14 +148,14 @@ export async function orchestrate(
         sessionId,
         userLang,
         processing.error.code,
-        processing.error.message
+        processing.error.message,
       ),
-      triage,
+      triage: decision,
     };
   }
 
   // 6. Build the response message in English
-  const responseEnglish = buildResponseMessage(triage, processing);
+  const responseEnglish = buildResponseMessage(decision, processing);
 
   // 7. Translate response back to user language
   let responseUserLang = responseEnglish;
@@ -136,7 +163,7 @@ export async function orchestrate(
     try {
       const t = await translateAdapter(
         { text: responseEnglish, from: "en", to: userLang },
-        env
+        env,
       );
       responseUserLang = t.translated;
     } catch {
@@ -150,7 +177,7 @@ export async function orchestrate(
   try {
     const tts = await ttsAdapter(
       { text: responseUserLang, language: userLang },
-      env
+      env,
     );
     audioUrl = tts.audioUrl;
   } catch {
@@ -159,7 +186,7 @@ export async function orchestrate(
 
   return {
     sessionId,
-    state: triage.outcome === "escalate" ? "receipt" : "response",
+    state: decision.outcome === "escalate" ? "receipt" : "response",
     transcript: {
       original: transcriptOriginal,
       english: transcriptEnglish,
@@ -170,42 +197,40 @@ export async function orchestrate(
       english: responseEnglish,
       language: userLang,
     },
-    triage,
+    triage: decision,
     agencyContact: processing.agencyContact,
     case: processing.case,
     receipt: processing.receipt,
     audioUrl,
-    nextActions: nextActionsFor(triage.outcome),
+    nextActions: nextActionsFor(decision.outcome),
   };
 }
 
 function buildResponseMessage(
-  triage: TriageResult,
-  processing: ProcessingOutput
+  decision: TriageDecision,
+  processing: ProcessingOutput,
 ): string {
   const agency: AgencyContact | undefined = processing.agencyContact;
 
-  if (triage.outcome === "signpost" && agency) {
+  if (decision.outcome === "signpost" && agency) {
     const blurb = agency.multilingualBlurb.en ?? "";
     return blurb
       ? `I can connect you with ${agency.name}. ${blurb}`
       : `I can connect you with ${agency.name}.`;
   }
-  if (triage.outcome === "escalate") {
+  if (decision.outcome === "escalate") {
     return "I have recorded this for the volunteer team to follow up. Please keep this receipt.";
   }
-  if (triage.outcome === "out_of_scope" && agency) {
+  if (decision.outcome === "out_of_scope" && agency) {
     return `For this, please contact ${agency.name}.`;
   }
-  if (triage.outcome === "find_nearby") {
+  if (decision.outcome === "find_nearby") {
     return "Here are the nearest options I could find.";
   }
   return "I am not sure how to help with that. Let me record this for a volunteer.";
 }
 
-function nextActionsFor(
-  outcome: TriageOutcome
-): TurnResponse["nextActions"] {
+function nextActionsFor(outcome: TriageOutcome): TurnResponse["nextActions"] {
   switch (outcome) {
     case "signpost":
       return ["accept_escalation", "decline_escalation", "show_receipt"];
@@ -224,7 +249,7 @@ function errorResponse(
   sessionId: string,
   language: string,
   code: string,
-  message: string
+  message: string,
 ): TurnResponse {
   return {
     sessionId,

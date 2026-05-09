@@ -13,7 +13,10 @@ export type TriageInput = {
   language: string;
 };
 
-export type TriageResult = {
+// Decision returned by the agent; the orchestrator wraps this into the full
+// `TriageResult` audit row defined in `../../types/contracts.ts` before
+// passing it to runProcessing.
+export type TriageDecision = {
   outcome: TriageOutcome;
   confidence: "high" | "medium" | "low";
   selectedToolName?: string;
@@ -48,7 +51,7 @@ function isMockMode(env: LlmEnv): boolean {
   return env.LLM_MOCK === "true" || !env.AI;
 }
 
-function mockTriage(transcriptEnglish: string): TriageResult {
+function mockTriage(transcriptEnglish: string): TriageDecision {
   const text = transcriptEnglish.toLowerCase();
 
   if (text.includes("emergency") || text.includes("995") || text.includes("ambulance")) {
@@ -92,12 +95,12 @@ function mockTriage(transcriptEnglish: string): TriageResult {
 export async function runTriage(
   input: TriageInput,
   env: LlmEnv
-): Promise<TriageResult> {
+): Promise<TriageDecision> {
   if (isMockMode(env)) {
     return mockTriage(input.transcriptEnglish);
   }
 
-  const result = await llmAdapter<TriageResult>(
+  const result = await llmAdapter<TriageDecision>(
     {
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
