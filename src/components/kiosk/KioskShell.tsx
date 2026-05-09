@@ -47,73 +47,6 @@ async function fetchTurn(payload: {
 
 type CapturedAudio = { base64: string; mimeType: string };
 
-type CapturedSpeech =
-  | { kind: "text"; transcript: string; language: string }
-  | { kind: "audio"; base64: string; mimeType: string };
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getSpeechRecognitionConstructor(): (new () => any) | undefined {
-  if (typeof window === "undefined") return undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any;
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
-}
-
-async function transcribeViaWebSpeech(
-  language: string,
-  timeoutMs: number,
-): Promise<CapturedSpeech | null> {
-  const Ctor = getSpeechRecognitionConstructor();
-  if (!Ctor) return null;
-
-  return new Promise<CapturedSpeech | null>((resolve) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let recognition: any;
-    try {
-      recognition = new Ctor();
-    } catch {
-      return resolve(null);
-    }
-    recognition.lang = language;
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    let settled = false;
-    const finish = (result: CapturedSpeech | null) => {
-      if (settled) return;
-      settled = true;
-      try {
-        recognition.stop();
-      } catch {
-        // ignore
-      }
-      resolve(result);
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.addEventListener("result", (event: any) => {
-      const transcript = event.results[0]?.[0]?.transcript?.trim();
-      if (transcript) {
-        finish({ kind: "text", transcript, language });
-      } else {
-        finish(null);
-      }
-    });
-    recognition.addEventListener("error", () => finish(null));
-    recognition.addEventListener("end", () => finish(null));
-
-    try {
-      recognition.start();
-    } catch {
-      finish(null);
-      return;
-    }
-
-    setTimeout(() => finish(null), timeoutMs);
-  });
-}
-
 function speakViaBrowser(text: string, language: string): boolean {
   if (typeof window === "undefined" || !window.speechSynthesis) return false;
   try {
@@ -214,9 +147,10 @@ const DEFAULT_LANGUAGE = "zh-Hans";
 export default function KioskShell() {
   const [state, setState] = useState<KioskState>("idle");
   const [messages, setMessages] = useState<ChatEntry[]>([]);
-  const [transcript, setTranscript] = useState<
-    { english: string; srcLang: string } | null
-  >(null);
+  const [transcript, setTranscript] = useState<{
+    english: string;
+    srcLang: string;
+  } | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [pulseToken, setPulseToken] = useState(0);
 
@@ -226,7 +160,12 @@ export default function KioskShell() {
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const capturedSpeechRef = useRef<CapturedSpeech | null>(null);
+  // Outstanding captureAudio promise. The listening effect kicks off the
+  // recording; the thinking effect awaits it before posting /turn so the
+  // request always carries audio rather than racing the recorder.
+  const audioCapturePromiseRef = useRef<Promise<CapturedAudio | null> | null>(
+    null,
+  );
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   const clearAllTimers = useCallback(() => {
@@ -276,26 +215,11 @@ export default function KioskShell() {
     }, PULSE_INTERVAL_MS);
 
     if (USE_REAL_TURN) {
-      capturedSpeechRef.current = null;
-      const tryWebSpeech = transcribeViaWebSpeech(
-        DEFAULT_LANGUAGE,
-        SIMULATED_LISTENING_MS,
-      );
-      tryWebSpeech.then(async (textResult) => {
-        if (textResult) {
-          capturedSpeechRef.current = textResult;
-          return;
-        }
-        // Fallback: record audio for backend STT
-        const audioResult = await captureAudio(SIMULATED_LISTENING_MS);
-        if (audioResult) {
-          capturedSpeechRef.current = {
-            kind: "audio",
-            base64: audioResult.base64,
-            mimeType: audioResult.mimeType,
-          };
-        }
-      });
+      // Always record audio. The backend's STT (Whisper via the AI binding)
+      // detects the language and returns the English transcript — letting the
+      // browser do its own speech-recognition would skip language detection
+      // and lock us to the kiosk's default lang.
+      audioCapturePromiseRef.current = captureAudio(SIMULATED_LISTENING_MS);
     }
 
     if (targetTranscript) {
@@ -337,21 +261,28 @@ export default function KioskShell() {
           Math.min(turnIndexRef.current, MOCK_TURN_SEQUENCE.length - 1)
         ];
       const mockFixture = mockTurnResponses[fixtureKey];
-      const speech = capturedSpeechRef.current;
+
+      // Await the audio capture started in the listening effect. The recorder
+      // stops itself at SIMULATED_LISTENING_MS, then this promise resolves
+      // with the encoded audio.
+      const audioPromise = audioCapturePromiseRef.current;
+      audioCapturePromiseRef.current = null;
+      const audioResult: CapturedAudio | null = audioPromise
+        ? await audioPromise
+        : null;
 
       let response: TurnResponse | null = null;
       if (USE_REAL_TURN) {
-        const fallbackText = mockFixture?.transcript?.english;
+        if (!audioResult) {
+          // No audio captured — likely the user denied mic permission or the
+          // recorder failed. Bail back to idle rather than fabricate a request.
+          resetToIdle();
+          return;
+        }
         response = await fetchTurn({
           sessionId: sessionIdRef.current ?? undefined,
           kioskId: "demo-laptop",
-          text:
-            speech?.kind === "text"
-              ? speech.transcript
-              : speech
-                ? undefined
-                : fallbackText,
-          audioBase64: speech?.kind === "audio" ? speech.base64 : undefined,
+          audioBase64: audioResult.base64,
         });
       }
 
@@ -368,10 +299,7 @@ export default function KioskShell() {
       sessionIdRef.current = turnResponse.sessionId;
 
       const stamp = Date.now();
-      const userText =
-        speech?.kind === "text" && speech.transcript
-          ? speech.transcript
-          : turnResponse.transcript?.english;
+      const userText = turnResponse.transcript?.english;
 
       const newEntries: ChatEntry[] = [];
       if (userText) {
@@ -379,9 +307,7 @@ export default function KioskShell() {
           id: `user-${stamp}`,
           role: "user",
           text: userText,
-          language:
-            turnResponse.transcript?.srcLang ??
-            (speech?.kind === "text" ? speech.language : DEFAULT_LANGUAGE),
+          language: turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
         });
       }
       newEntries.push({
@@ -417,8 +343,6 @@ export default function KioskShell() {
           turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
         );
       }
-
-      capturedSpeechRef.current = null;
 
       if (turnResponse.state === "followup") {
         // Bump the mock cursor so a follow-up turn pulls the next fixture.
@@ -488,7 +412,11 @@ export default function KioskShell() {
   };
 
   const blobMode: "idle" | "listening" | "thinking" =
-    state === "listening" ? "listening" : state === "thinking" ? "thinking" : "idle";
+    state === "listening"
+      ? "listening"
+      : state === "thinking"
+        ? "thinking"
+        : "idle";
 
   const showBlob = state !== "receipt";
   const isChatLayout = state === "chat";
@@ -509,7 +437,7 @@ export default function KioskShell() {
           "flex flex-1 flex-col items-center px-[8vw]",
           isChatLayout
             ? "justify-between gap-6 pb-6 pt-2"
-            : "justify-center gap-8 pb-[6vh]"
+            : "justify-center gap-8 pb-[6vh]",
         )}
       >
         {isChatLayout && (
