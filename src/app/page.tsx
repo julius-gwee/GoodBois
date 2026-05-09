@@ -1,17 +1,15 @@
-// src/app/page.tsx (TEMPORARY for Task 8 verification — Task 10 replaces this)
+// src/app/page.tsx
 "use client";
 
-import LanguageFadeCycle from "@/components/atoms/LanguageFadeCycle";
-import VoiceAgentBlob from "@/components/atoms/VoiceAgentBlob";
+import HomeScreen from "@/components/kiosk/HomeScreen";
 
-export default function Home() {
+export default function Page() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-soft-cream">
-      <VoiceAgentBlob
-        ariaLabel="Tap to speak to Kawan"
-        onActivate={() => console.log("[kawan] blob activated")}
-      />
-      <LanguageFadeCycle />
-    </main>
+    <HomeScreen
+      onActivate={(source) => {
+        // Phase 1 stub. Phase 2 wires this to consent / listening flow.
+        console.info(`[kawan] activated via ${source}`);
+      }}
+    />
   );
 }
