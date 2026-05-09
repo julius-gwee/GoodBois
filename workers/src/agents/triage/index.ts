@@ -48,7 +48,9 @@ const SYSTEM_PROMPT =
   '{"outcome":"<outcome>","confidence":"high|medium|low","selectedToolName":"<tool if relevant>","selectedAgencyKey":"<key if signpost or out_of_scope>"}';
 
 function isMockMode(env: LlmEnv): boolean {
-  return env.LLM_MOCK === "true" || !env.AI;
+  if (env.LLM_MOCK === "true") return true;
+  if (env.AI || env.SEALION_API_KEY) return false;
+  return true;
 }
 
 function mockTriage(transcriptEnglish: string): TriageDecision {
