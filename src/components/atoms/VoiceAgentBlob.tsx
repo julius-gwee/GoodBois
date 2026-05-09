@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { Check, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type VoiceAgentBlobProps = {
@@ -13,14 +14,14 @@ type VoiceAgentBlobProps = {
   pulseToken?: number;                        // increment to trigger one listening pulse
 };
 
-// Three hand-tuned 5-petal silhouettes on a 200x200 viewBox, centered around (100,100).
-// Each path traces five cardinal lobes with slightly different control points so the
-// morph reads as one flower breathing rather than three unrelated shapes.
-const PETAL_PATHS = [
-  "M100,18 C140,18 168,46 178,82 C196,108 184,146 154,162 C132,180 100,182 80,170 C44,176 16,148 22,108 C12,80 36,42 70,28 C82,22 90,18 100,18 Z",
-  "M100,22 C148,18 172,52 174,90 C188,116 178,150 146,164 C124,180 96,184 76,168 C42,172 20,140 26,104 C18,76 42,38 74,30 C84,24 92,22 100,22 Z",
-  "M100,16 C144,22 170,48 180,86 C190,112 180,150 150,168 C128,182 96,178 78,166 C42,178 14,144 24,106 C16,78 38,40 72,26 C84,20 92,16 100,16 Z",
-];
+// Per-mode circle fill + icon foreground. Tuned to match the splash recording:
+// idle reads as a calm stone, listening as an attentive blue, thinking flips to
+// the brand green with a checkmark to signal "got it".
+const MODE_STYLES = {
+  idle: { fill: "#DDD9CE", icon: "#3E3E38" },        // stone-wash + body-gray
+  listening: { fill: "#4F7CF0", icon: "#FFFFFF" },   // confident blue
+  thinking: { fill: "#3DA56A", icon: "#FFFFFF" },    // success green
+} as const;
 
 const PRESS_DURATION_MS = 250;
 
@@ -35,7 +36,6 @@ export default function VoiceAgentBlob({
   const reducedMotion = useReducedMotion();
   const [isPressing, setIsPressing] = useState(false);
   const [listeningPulse, setListeningPulse] = useState(false);
-  const gradientId = useId();
   const pressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listeningPulseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -48,9 +48,6 @@ export default function VoiceAgentBlob({
   useEffect(() => {
     if (mode !== "listening" || pulseToken === undefined) return;
     if (listeningPulseRef.current) clearTimeout(listeningPulseRef.current);
-    // Defer the state update out of the effect body to avoid cascading renders.
-    // setTimeout(..., 0) schedules it after the current render cycle, keeping
-    // the pulse visually immediate while satisfying the linter rule.
     const onId = setTimeout(() => {
       setListeningPulse(true);
       listeningPulseRef.current = setTimeout(() => setListeningPulse(false), 200);
@@ -72,20 +69,14 @@ export default function VoiceAgentBlob({
       () => setIsPressing(false),
       PRESS_DURATION_MS
     );
-    // onActivate fires immediately (not after the press animation) for minimum
-    // tap-to-action latency. If a future caller replaces this UI on activate,
-    // consider delaying by PRESS_DURATION_MS.
     onActivate?.();
   };
 
-  // While pressing: short keyframe scale 1.0 → 1.07 → 1.0
-  // Otherwise: continuous breathing 0.95 ↔ 1.05 (or 0.98 ↔ 1.02 reduced)
   const breatheKeyframes = reducedMotion
-    ? [0.98, 1.02, 0.98]
-    : [0.95, 1.05, 0.95];
+    ? [0.99, 1.01, 0.99]
+    : [0.97, 1.03, 0.97];
   const breatheDuration = reducedMotion ? 12 : 4;
 
-  // Scale priority: pressing > listening pulse > breathing
   const scaleAnimate = isPressing
     ? [1.0, 1.07, 1.0]
     : listeningPulse
@@ -98,17 +89,15 @@ export default function VoiceAgentBlob({
       ? { duration: 0.2, ease: "easeOut" as const }
       : { duration: breatheDuration, repeat: Infinity, ease: "easeInOut" as const };
 
-  // Thinking adds a gentle wobble rotation on top
-  const rotateAnimate = mode === "thinking" ? [-8, 0, 8, 0] : 0;
-  const rotateTransition =
-    mode === "thinking"
-      ? { duration: 2, repeat: Infinity, ease: "easeInOut" as const }
-      : { duration: 0.4, ease: "easeOut" as const };
-
   const sizeClasses =
     position === "bottom"
       ? "h-[20vmin] w-[20vmin]"
       : "h-[40vmin] w-[40vmin]";
+
+  const styles = MODE_STYLES[mode];
+  const Icon = mode === "thinking" ? Check : Mic;
+  // Mic reads well at ~42% of the circle; Check needs a bit more presence.
+  const iconScale = mode === "thinking" ? 0.5 : 0.42;
 
   return (
     <button
@@ -122,38 +111,35 @@ export default function VoiceAgentBlob({
         className
       )}
     >
-      {/* rgba(62,62,56,...) is the --body-gray token. Update both shadows if the token changes. */}
-      <motion.svg
-        viewBox="0 0 200 200"
+      <motion.div
         className={cn(
           sizeClasses,
+          "relative flex items-center justify-center rounded-full",
+          // rgba(62,62,56,...) is the --body-gray token. Update both shadows if the token changes.
           "drop-shadow-[0_8px_24px_rgba(62,62,56,0.08)]",
           "transition-[filter] duration-150",
           "group-hover:drop-shadow-[0_8px_24px_rgba(62,62,56,0.16)]"
         )}
-        animate={{ scale: scaleAnimate, rotate: rotateAnimate }}
-        transition={{ scale: scaleTransition, rotate: rotateTransition }}
+        animate={{ scale: scaleAnimate, backgroundColor: styles.fill }}
+        transition={{
+          scale: scaleTransition,
+          backgroundColor: { duration: 0.4, ease: "easeOut" },
+        }}
+        initial={false}
       >
-        <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#3D7A3D" />
-            <stop offset="100%" stopColor="#5FA05F" />
-          </linearGradient>
-        </defs>
-        <motion.path
-          fill={`url(#${gradientId})`}
-          animate={
-            reducedMotion
-              ? { d: PETAL_PATHS[0] }
-              : { d: [...PETAL_PATHS, PETAL_PATHS[0]] }
-          }
-          transition={
-            reducedMotion
-              ? undefined
-              : { duration: 6, repeat: Infinity, ease: "easeInOut" }
-          }
-        />
-      </motion.svg>
+        <motion.span
+          className="flex items-center justify-center"
+          animate={{ color: styles.icon }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          style={{ width: `${iconScale * 100}%`, height: `${iconScale * 100}%` }}
+        >
+          <Icon
+            strokeWidth={mode === "thinking" ? 3 : 2.4}
+            className="h-full w-full"
+            aria-hidden="true"
+          />
+        </motion.span>
+      </motion.div>
     </button>
   );
 }
