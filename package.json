@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "worker:dev": "wrangler dev --config workers/wrangler.toml",
+    "worker:secret:onemap": "wrangler secret put ONEMAP_ACCESS_TOKEN --config workers/wrangler.toml",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -33,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.90.0"
   }
 }
