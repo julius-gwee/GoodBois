@@ -38,6 +38,7 @@ workers/.dev.vars
 workers/wrangler.toml
 workers/.wrangler/
 workers/wrangler-dev*.log
+workers/worker-configuration.d.ts
 
 # vercel
 .vercel
