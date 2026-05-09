@@ -40,6 +40,7 @@ export function KawanDirectoryApp({
   const [showDetails, setShowDetails] = useState(false);
   const [showDirections, setShowDirections] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [showResourcePrintPreview, setShowResourcePrintPreview] = useState(false);
   const [routeMode, setRouteMode] = useState<RouteMode>("wheelchair");
   const [fromChat] = useState(initialFromChat);
   const [mode, setMode] = useState<"map" | "chat">(initialFromChat ? "map" : "map");
@@ -100,6 +101,7 @@ export function KawanDirectoryApp({
     setShowDetails(true);
     setShowDirections(false);
     setShowPrintPreview(false);
+    setShowResourcePrintPreview(false);
   }
 
   function backToChat() {
@@ -107,6 +109,7 @@ export function KawanDirectoryApp({
     setShowDetails(false);
     setShowDirections(false);
     setShowPrintPreview(false);
+    setShowResourcePrintPreview(false);
   }
 
   function speak(text: string) {
@@ -197,11 +200,13 @@ export function KawanDirectoryApp({
           onDirections={() => {
             setShowDirections(true);
             setShowPrintPreview(false);
+            setShowResourcePrintPreview(false);
           }}
           onPrintDetails={() => {
-            setShowDirections(true);
-            setShowPrintPreview(true);
+            setShowResourcePrintPreview(true);
           }}
+          onClosePrintDetails={() => setShowResourcePrintPreview(false)}
+          showPrintDetails={showResourcePrintPreview}
           onReadAloud={() =>
             speak(
               [

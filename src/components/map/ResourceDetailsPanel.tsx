@@ -6,6 +6,7 @@ import { getLocalizedText } from "@/lib/map/directory";
 import { categoryLabels, confidenceKeys, hazardStatusKeys, t, verificationLabels } from "@/lib/map/i18n";
 import type { DirectoryLanguage, Resource } from "@/types/goodbois";
 import { Button } from "@/components/ui/button";
+import { ResourcePrintPreview } from "./ResourcePrintPreview";
 
 type ResourceDetailsPanelProps = {
   resource: Resource;
@@ -14,8 +15,10 @@ type ResourceDetailsPanelProps = {
   onClose: () => void;
   onDirections: () => void;
   onPrintDetails: () => void;
+  onClosePrintDetails: () => void;
   onReadAloud: () => void;
   onBackToChat: () => void;
+  showPrintDetails: boolean;
 };
 
 export function ResourceDetailsPanel({
@@ -25,8 +28,10 @@ export function ResourceDetailsPanel({
   onClose,
   onDirections,
   onPrintDetails,
+  onClosePrintDetails,
   onReadAloud,
   onBackToChat,
+  showPrintDetails,
 }: ResourceDetailsPanelProps) {
   return (
     <aside className="absolute inset-x-0 bottom-0 z-50 max-h-[74dvh] overflow-y-auto rounded-t-2xl bg-white p-5 shadow-[0_-16px_45px_rgba(23,23,23,0.22)] lg:inset-y-6 lg:left-auto lg:right-6 lg:w-[430px] lg:rounded-2xl">
@@ -111,6 +116,9 @@ export function ResourceDetailsPanel({
           {t(language, hazardStatusKeys[resource.currentHazardStatus ?? "unknown"])}
         </p>
       </div>
+      {showPrintDetails ? (
+        <ResourcePrintPreview resource={resource} language={language} onClose={onClosePrintDetails} />
+      ) : null}
     </aside>
   );
 }
