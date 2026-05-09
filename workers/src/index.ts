@@ -18,6 +18,7 @@ import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
 import { makeD1Repos } from "./db/d1";
 import { renderReceiptHtml } from "./receipt/render";
+import { makeHazardMailer } from "./integrations/email";
 
 export type WorkerBindings = {
   AI?: {
@@ -27,6 +28,9 @@ export type WorkerBindings = {
   SEALION_API_KEY?: string;
   SEALION_BASE_URL?: string;
   WORKER_URL?: string;
+  RESEND_API_KEY?: string;
+  HAZARD_NOTIFY_EMAIL?: string;
+  HAZARD_FROM_EMAIL?: string;
 };
 
 let memoryRepos: Repos | null = null;
@@ -99,6 +103,15 @@ app.post("/turn", async (c) => {
   // For now return a placeholder so Dev B / Dev C can integration-test their
   // tools against the route shape.
   const sessionId = body.sessionId ?? `session-${Date.now()}`;
+
+  // Mailer is built here and passed into ToolCtx when the orchestrator is wired.
+  // When invokeTool is called in the Phase 7 orchestrator, include hazardMailer in ToolCtx:
+  //   const ctx: ToolCtx = { repos, workerUrl, sessionId, srcLang, hazardMailer, priorToolResults: {} };
+  const hazardMailer = makeHazardMailer({
+    apiKey: c.env.RESEND_API_KEY,
+    recipient: c.env.HAZARD_NOTIFY_EMAIL,
+    from: c.env.HAZARD_FROM_EMAIL,
+  });
   const response: TurnResponse = {
     sessionId,
     state: "done",
