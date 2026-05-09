@@ -59,7 +59,7 @@ export function DirectionsPanel({
 
       <p className="text-base font-medium text-teal-200">{t(language, "routeOptions")}</p>
       <h2 className="mt-1 text-3xl font-semibold leading-tight">
-        {getLocalizedText(route.origin.label, language)} → {getLocalizedText(resource.name, language)}
+        {getLocalizedText(route.origin.label, language)} -&gt; {getLocalizedText(resource.name, language)}
       </h2>
 
       <div className="mt-5 grid grid-cols-3 gap-2">
@@ -81,7 +81,7 @@ export function DirectionsPanel({
         <p className="text-lg font-semibold">{t(language, "selectedRoute")}</p>
         <div className="mt-2 flex items-end gap-4">
           <p className="text-5xl font-semibold">{route.durationMinutes}</p>
-          <p className="pb-2 text-lg">min · {route.distanceMeters} m</p>
+          <p className="pb-2 text-lg">min / {route.distanceMeters} m</p>
         </div>
         <p className="mt-2 rounded-lg bg-amber-100 px-3 py-2 text-base font-medium text-amber-950">
           {route.providerLabel}
@@ -102,7 +102,7 @@ export function DirectionsPanel({
             <div>
               <p className="text-lg leading-7">{getLocalizedText(step.instruction, language)}</p>
               <p className="text-sm text-neutral-300">
-                {step.distanceMeters} m · {step.durationMinutes} min
+                {step.distanceMeters} m / {step.durationMinutes} min
               </p>
             </div>
           </li>

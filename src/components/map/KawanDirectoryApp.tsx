@@ -1,9 +1,11 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useMemo, useState } from "react";
 
 import { getLocalizedText, getRouteForMode, filterResources } from "@/lib/map/directory";
+import { loadResources, loadRoutes, type DataSource } from "@/lib/map/api";
 import { demoResources, demoRoutes } from "@/lib/map/fixtures";
 import { t } from "@/lib/map/i18n";
 import type { DirectoryLanguage, Resource, ResourceCategory, RouteMode } from "@/types/goodbois";
@@ -11,8 +13,12 @@ import { Button } from "@/components/ui/button";
 import { DirectoryDrawer } from "./DirectoryDrawer";
 import { DirectionsPanel } from "./DirectionsPanel";
 import { LanguageBar } from "./LanguageBar";
-import { MapCanvas } from "./MapCanvas";
 import { ResourceDetailsPanel } from "./ResourceDetailsPanel";
+
+const MapCanvas = dynamic(() => import("./MapCanvas").then((module) => module.MapCanvas), {
+  ssr: false,
+  loading: () => <div className="min-h-[48dvh] flex-1 bg-[#dce9e3] lg:min-h-dvh" />,
+});
 
 type KawanDirectoryAppProps = {
   initialLanguage?: DirectoryLanguage;
@@ -26,6 +32,10 @@ export function KawanDirectoryApp({
   const [language, setLanguage] = useState<DirectoryLanguage>(initialLanguage);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ResourceCategory | "all">("all");
+  const [resources, setResources] = useState<Resource[]>(demoResources);
+  const [routesByResource, setRoutesByResource] = useState(demoRoutes);
+  const [dataSource, setDataSource] = useState<DataSource>("fixture");
+  const [loading, setLoading] = useState(false);
   const [selectedResource, setSelectedResource] = useState<Resource>(demoResources[0]);
   const [showDetails, setShowDetails] = useState(false);
   const [showDirections, setShowDirections] = useState(false);
@@ -34,16 +44,56 @@ export function KawanDirectoryApp({
   const [fromChat] = useState(initialFromChat);
   const [mode, setMode] = useState<"map" | "chat">(initialFromChat ? "map" : "map");
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncResources() {
+      setLoading(true);
+      const result = await loadResources({ query, category, language: "all" });
+      if (!cancelled) {
+        setResources(result.resources);
+        setDataSource(result.source);
+        setLoading(false);
+      }
+    }
+
+    void syncResources();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [category, query]);
+
   const filteredResources = useMemo(
-    () => filterResources(demoResources, { query, category, language: "all" }),
-    [query, category],
+    () => filterResources(resources, { query, category, language: "all" }),
+    [resources, query, category],
   );
   const activeResource = filteredResources.some((resource) => resource.id === selectedResource.id)
     ? selectedResource
     : (filteredResources[0] ?? selectedResource);
 
-  const selectedRoutes = demoRoutes[activeResource.id] ?? demoRoutes["senior-corner"];
+  const selectedRoutes = routesByResource[activeResource.id] ?? demoRoutes[activeResource.id] ?? demoRoutes["senior-corner"];
   const selectedRoute = getRouteForMode(selectedRoutes, routeMode);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function syncRoutes() {
+      const result = await loadRoutes(activeResource.id);
+      if (!cancelled && result.routes.length > 0) {
+        setRoutesByResource((current) => ({
+          ...current,
+          [activeResource.id]: result.routes,
+        }));
+      }
+    }
+
+    void syncRoutes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeResource.id]);
 
   function selectResource(resource: Resource) {
     setSelectedResource(resource);
@@ -94,8 +144,8 @@ export function KawanDirectoryApp({
   }
 
   return (
-    <main className="relative flex min-h-dvh flex-col overflow-hidden bg-neutral-100 text-neutral-950 lg:block">
-      <header className="absolute left-3 right-3 top-3 z-50 rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur lg:left-6 lg:right-auto lg:w-[560px]">
+    <main className="relative flex h-dvh min-h-dvh flex-col overflow-hidden bg-neutral-100 text-neutral-950 lg:block">
+      <header className="fixed left-3 right-3 top-3 z-[700] rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur lg:left-6 lg:right-auto lg:w-[560px]">
         <div className="flex items-center gap-3">
           <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-teal-700 text-2xl font-semibold text-white">
             K
@@ -123,16 +173,20 @@ export function KawanDirectoryApp({
         onBackToChat={backToChat}
       />
 
-      <DirectoryDrawer
-        language={language}
-        query={query}
-        category={category}
-        resources={filteredResources}
-        selectedResource={activeResource}
-        onQueryChange={setQuery}
-        onCategoryChange={setCategory}
-        onSelectResource={selectResource}
-      />
+      {!showDetails && !showDirections ? (
+        <DirectoryDrawer
+          language={language}
+          query={query}
+          category={category}
+          resources={filteredResources}
+          selectedResource={activeResource}
+          loading={loading}
+          source={dataSource}
+          onQueryChange={setQuery}
+          onCategoryChange={setCategory}
+          onSelectResource={selectResource}
+        />
+      ) : null}
 
       {showDetails && !showDirections ? (
         <ResourceDetailsPanel
@@ -183,7 +237,7 @@ export function KawanDirectoryApp({
         />
       ) : null}
 
-      <div className="z-50 lg:absolute lg:bottom-0 lg:left-0 lg:right-0">
+      <div className="z-[700] lg:fixed lg:bottom-0 lg:left-0 lg:right-0">
         <LanguageBar language={language} onLanguageChange={setLanguage} />
       </div>
     </main>

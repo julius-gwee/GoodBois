@@ -12,6 +12,13 @@ export type MapRouteOverlay = {
 };
 
 export type MapAdapter = {
+  tileUrl: string;
+  attribution: string;
+  center: {
+    latitude: number;
+    longitude: number;
+  };
+  zoom: number;
   projectResources(resources: Resource[]): MapPoint[];
   projectRoute(route: RouteOption): MapRouteOverlay;
 };
@@ -37,6 +44,14 @@ function project(latitude: number, longitude: number, id: string): MapPoint {
 }
 
 export const mapAdapter: MapAdapter = {
+  tileUrl: "https://www.onemap.gov.sg/maps/tiles/Default/{z}/{x}/{y}.png",
+  attribution:
+    '<img src="https://www.onemap.gov.sg/web-assets/images/logo/om_logo.png" alt="OneMap" style="height:20px;width:20px;vertical-align:middle;margin-right:4px" /> OneMap | Map data © Singapore Land Authority',
+  center: {
+    latitude: 1.30218,
+    longitude: 103.85092,
+  },
+  zoom: 18,
   projectResources(resources) {
     return resources.map((resource) => project(resource.latitude, resource.longitude, resource.id));
   },

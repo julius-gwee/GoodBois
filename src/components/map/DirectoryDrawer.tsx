@@ -13,6 +13,8 @@ type DirectoryDrawerProps = {
   category: ResourceCategory | "all";
   resources: Resource[];
   selectedResource?: Resource;
+  loading: boolean;
+  source: "worker" | "fixture";
   onQueryChange: (query: string) => void;
   onCategoryChange: (category: ResourceCategory | "all") => void;
   onSelectResource: (resource: Resource) => void;
@@ -24,12 +26,14 @@ export function DirectoryDrawer({
   category,
   resources,
   selectedResource,
+  loading,
+  source,
   onQueryChange,
   onCategoryChange,
   onSelectResource,
 }: DirectoryDrawerProps) {
   return (
-    <aside className="z-40 flex max-h-[52dvh] flex-col rounded-t-2xl bg-neutral-50 shadow-[0_-14px_40px_rgba(23,23,23,0.16)] lg:absolute lg:bottom-20 lg:left-6 lg:max-h-[58dvh] lg:w-[440px] lg:rounded-2xl">
+    <aside className="z-[700] flex max-h-[52dvh] flex-col rounded-t-2xl bg-neutral-50 shadow-[0_-14px_40px_rgba(23,23,23,0.16)] lg:fixed lg:bottom-20 lg:left-6 lg:max-h-[58dvh] lg:w-[440px] lg:rounded-2xl">
       <div className="space-y-3 border-b border-neutral-200 p-4">
         <label className="relative block">
           <span className="sr-only">{t(language, "search")}</span>
@@ -51,6 +55,16 @@ export function DirectoryDrawer({
             {resources.length}
           </span>
         </div>
+        {source === "fixture" ? (
+          <p className="mb-3 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-950">
+            Demo data shown. Worker connection is not active.
+          </p>
+        ) : null}
+        {loading ? (
+          <p className="mb-3 rounded-lg bg-teal-50 px-3 py-2 text-sm font-medium text-teal-900">
+            Loading places...
+          </p>
+        ) : null}
         <div className="space-y-3">
           {resources.map((resource) => (
             <ResourceCard

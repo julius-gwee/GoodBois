@@ -1,6 +1,20 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "leaflet/dist/leaflet.css";
+
+.kawan-leaflet-map {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.kawan-leaflet-map .leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
 
 @custom-variant dark (&:is(.dark *));
 
