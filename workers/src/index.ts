@@ -42,7 +42,36 @@ app.use(
   }),
 );
 
-app.get("/health", (c) => c.json({ ok: true, service: "goodbois-worker" }));
+app.get("/health", (c) => {
+  const env = c.env;
+  const sealionKeyPresent = Boolean(env.SEALION_API_KEY);
+  const aiBindingPresent = Boolean(env.AI);
+
+  const adapter = (mockFlag: string | undefined) => {
+    if (mockFlag === "true") return "mock";
+    if (sealionKeyPresent) return "sealion";
+    if (aiBindingPresent) return "workers-ai";
+    return "mock-fallback";
+  };
+
+  return c.json({
+    ok: true,
+    service: "goodbois-worker",
+    timestamp: new Date().toISOString(),
+    adapters: {
+      stt: env.STT_MOCK === "true" ? "mock" : aiBindingPresent ? "workers-ai" : "mock-fallback",
+      tts: env.TTS_MOCK === "true" ? "mock" : aiBindingPresent ? "workers-ai" : "mock-fallback",
+      translate: adapter(env.TRANSLATE_MOCK),
+      llm: adapter(env.LLM_MOCK),
+    },
+    bindings: {
+      ai: aiBindingPresent,
+      sealion_api_key: sealionKeyPresent,
+      sealion_base_url: env.SEALION_BASE_URL ?? null,
+      worker_url: env.WORKER_URL ?? null,
+    },
+  });
+});
 
 app.post("/turn", async (c) => {
   let body: Partial<TurnRequest>;
