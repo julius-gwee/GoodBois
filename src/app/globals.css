@@ -99,7 +99,7 @@
   --forest-sage: #3D7A3D;
   --leaf-green: #5FA05F;
   --deep-terracotta: #B8502E;
-  --warm-amber: #8C6B45;
+  --warm-amber: #8C6B45; /* accent / large-text only — ~3.5:1 on cream, fails AA for body text */
   --deep-charcoal: #1A1A16;
   --body-gray: #3E3E38;
   --muted-stone: #6B6B63;
