@@ -26,7 +26,11 @@ const SYSTEM_PROMPT =
   '{"action":"ask"|"proceed","question":"<your question if action is ask>"}.';
 
 function isMockMode(env: LlmEnv): boolean {
-  return env.LLM_MOCK === "true" || !env.AI;
+  if (env.LLM_MOCK === "true") return true;
+  // Real mode is available if EITHER Cloudflare Workers AI is bound OR a
+  // SEALion API key is set (llmAdapter prefers SEALion when both are present).
+  if (env.AI || env.SEALION_API_KEY) return false;
+  return true;
 }
 
 function mockInquiry(transcriptEnglish: string): InquiryOutput {
