@@ -2,13 +2,8 @@
 //
 // GoodBois kiosk Worker entry. Hono router with:
 //   GET  /health
-//   POST /turn               — Phase 7: real orchestrator (currently a stub)
+//   POST /turn               — six-stage orchestrator (spec §2)
 //   GET  /receipts/:id       — bilingual HTML render
-//
-// Removed in the 2026-05-09 refactor (per docs/refactor/2026-05-09-llm-turn-decision.md):
-//   - GET  /resources
-//   - POST /routes
-//   - GET  /export/cases.csv
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -17,13 +12,9 @@ import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
 import { renderReceiptHtml } from "./receipt/render";
+import { orchestrate, type OrchestratorEnv } from "./orchestrator";
 
-export type WorkerBindings = {
-  AI?: {
-    run: (model: string, input: unknown) => Promise<{ text?: string; response?: string }>;
-  };
-  SEALION_API_KEY?: string;
-  SEALION_BASE_URL?: string;
+export type WorkerBindings = OrchestratorEnv & {
   WORKER_URL?: string;
 };
 
@@ -91,22 +82,32 @@ app.post("/turn", async (c) => {
     );
   }
 
-  // TODO Phase 7: wire the real orchestrator (six-stage flow per spec §2).
-  // For now return a placeholder so Dev B / Dev C can integration-test their
-  // tools against the route shape.
-  const sessionId = body.sessionId ?? `session-${Date.now()}`;
-  const response: TurnResponse = {
-    sessionId,
-    state: "done",
-    transcript: { english: body.text ?? "", srcLang: "en" },
-    kioskMessage: "Orchestrator not implemented yet.",
-    error: {
-      code: "ORCHESTRATOR_NOT_IMPLEMENTED",
-      message: "POST /turn is stubbed pending Phase 7 rewrite.",
-      fallbackAvailable: true,
-    },
-  };
-  return c.json(response);
+  const workerUrl = c.env.WORKER_URL ?? new URL(c.req.url).origin;
+
+  try {
+    const response: TurnResponse = await orchestrate(
+      body as TurnRequest,
+      c.env,
+      { repos: getRepos(), workerUrl },
+    );
+    return c.json(response);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return c.json(
+      {
+        sessionId: body.sessionId ?? `session-${Date.now()}`,
+        state: "done",
+        transcript: { english: "", srcLang: "en" },
+        kioskMessage: "Sorry, the kiosk hit an unexpected error.",
+        error: {
+          code: "ORCHESTRATOR_FAILED",
+          message,
+          fallbackAvailable: true,
+        },
+      } satisfies TurnResponse,
+      500,
+    );
+  }
 });
 
 app.get("/receipts/:id", async (c) => {
