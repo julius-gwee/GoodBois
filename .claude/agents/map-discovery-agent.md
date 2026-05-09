@@ -30,11 +30,21 @@ Routing for the MVP demo flows through `signpost`. The retired `findNearby` tool
 - OneMap Barrier-Free Access API integration; wheelchair-friendly polyline.
 - Map render layered on a `signpost` result for routing scenarios — reuse the agency record's lat/long.
 
-## Do not touch
+## Coordinate before editing
 
-- `workers/src/orchestrator/`, `workers/src/agents/`, `workers/src/ai/` — owned by Dev A.
-- `workers/src/tools/generateReceipt.ts`, `workers/src/tools/reportHazard.ts`, `workers/src/receipt/` — owned by Dev B. (The receipt does hydrate from your agency directory at render time, but Dev B owns the render path.)
-- `workers/src/tools/registry.ts` — shared; register `signpost`, coordinate via PR for the surface.
+Lanes are ownership defaults — anyone can edit any file, but coordinate before crossing lanes (canonical: `docs/refactor/2026-05-09-llm-turn-decision.md` §13).
+
+- `workers/src/orchestrator/`, `workers/src/agents/`, `workers/src/ai/` — Dev A's lane.
+- `workers/src/tools/generateReceipt.ts`, `workers/src/tools/reportHazard.ts`, `workers/src/receipt/` — Dev B's lane. (The receipt hydrates from your directory at render time, but Dev B owns the render path.)
+- `workers/src/tools/registry.ts` — shared. Register `signpost`; PR coordination for the surface itself.
+
+## Coordination — hazard routing seam
+
+Dev B's `reportHazard` returns a `routedTo` value that the receipt and email adapter both consume. Convention (per spec §8.2 example): `routedTo` is an `AgencyContact.key` from your directory, not a category slug.
+
+- Ensure the directory contains at least one `town_council` / `hazard_authority` entry per hazard category Dev B can emit (lighting, lift, pothole, workplace, etc.).
+- When Dev B adds a new category, coordinate to seed a matching directory entry.
+- Your directory is canonical for agency keys. Dev B's category map must resolve to keys you provide.
 
 ## Agency directory — minimum coverage
 

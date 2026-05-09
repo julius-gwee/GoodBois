@@ -28,12 +28,22 @@ The filename is historical. For the MVP build, your scope is the **two delivery-
 - D1 entries for `Receipt` and `HazardReport`.
 - Hazard category → authority mapping table (consumes `AgencyContact.key` values from Dev C's directory).
 
-## Do not touch
+## Coordinate before editing
 
-- `workers/src/orchestrator/`, `workers/src/agents/`, `workers/src/ai/` — owned by Dev A.
-- `workers/src/tools/signpost.ts`, `workers/src/db/seeds/agencies.ts` — owned by Dev C.
-- `workers/src/tools/registry.ts` — shared; register your tools, coordinate via PR for the surface itself.
-- `workers/src/types/contracts.ts` — shared; coordinate via PR. Update `docs/standards/data-contracts.md` first.
+Lanes are ownership defaults — anyone can edit any file, but coordinate before crossing lanes (canonical: `docs/refactor/2026-05-09-llm-turn-decision.md` §13).
+
+- `workers/src/orchestrator/`, `workers/src/agents/`, `workers/src/ai/` — Dev A's lane.
+- `workers/src/tools/signpost.ts`, `workers/src/db/seeds/agencies.ts` — Dev C's lane.
+- `workers/src/tools/registry.ts` — shared. Register your tools; PR coordination for the surface itself.
+- `workers/src/types/contracts.ts` — shared. Update `docs/standards/data-contracts.md` first, then PR-coordinate.
+
+## Coordination — hazard routing seam
+
+`reportHazard` returns `routedTo`, which the receipt and (post-stub) email adapter both consume. The convention must match Dev C's directory:
+
+- Canonical convention (per spec §8.2 example): `routedTo` is a specific `AgencyContact.key` from Dev C's directory (e.g. `town-council-east-coast`), not a category slug.
+- Demo stub may use category slugs as a placeholder, but the production version must resolve `(category, location) → AgencyContact.key`. Coordinate with Dev C before promoting the stub so a matching directory entry exists.
+- When you add a hazard category, signal Dev C so the directory has a matching authority entry seeded.
 
 ## Rules
 
