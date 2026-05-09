@@ -1,0 +1,97 @@
+import type { Resource, RouteOption } from "../types/contracts";
+
+export const workerDemoResources: Resource[] = [
+  {
+    id: "senior-corner",
+    name: { en: "Senior Activity Corner", "zh-Hans": "乐龄活动角", ms: "Sudut Aktiviti Warga Emas" },
+    category: "senior_activity",
+    description: {
+      en: "Drop-in exercise and befriending activities beside the RC centre.",
+      "zh-Hans": "居民委员会旁的运动和邻里陪伴活动点。",
+    },
+    address: { en: "Block 124, Level 1 sheltered plaza", "zh-Hans": "第124座一楼有盖广场" },
+    latitude: 1.30272,
+    longitude: 103.85155,
+    openingHours: { en: "Daily, 7:00 AM - 9:00 PM", "zh-Hans": "每日，早上7点至晚上9点" },
+    contactPhone: "6123 4567",
+    costType: "free",
+    languages: ["en", "zh-Hans", "nan-Hant", "ms"],
+    accessibilityFeatures: [{ en: "Step-free access", "zh-Hans": "无台阶通道" }],
+    practicalNotes: [{ en: "Good for light exercise and meeting volunteers.", "zh-Hans": "适合轻量运动和见义工。" }],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "seed",
+    currentHazardStatus: "none",
+    details: { type: "senior_activity", activities: ["morning exercise"], sheltered: true, dropInFriendly: true },
+    createdAt: "2026-05-09T00:00:00+08:00",
+    updatedAt: "2026-05-09T08:00:00+08:00",
+  },
+  {
+    id: "kampong-glam-digital-help",
+    name: { en: "Digital Form Help Counter", "zh-Hans": "数码表格协助柜台", ms: "Kaunter Bantuan Borang Digital" },
+    category: "digital_form_help",
+    description: {
+      en: "Volunteers help with Singpass, CDC vouchers, and government forms.",
+      "zh-Hans": "义工协助处理 Singpass、CDC 邻里购物券和政府表格。",
+    },
+    address: { en: "Block 125 RC Centre, front counter", "zh-Hans": "第125座居民委员会中心前台" },
+    latitude: 1.30175,
+    longitude: 103.85108,
+    openingHours: { en: "Tue and Thu, 2:00 PM - 5:00 PM", "zh-Hans": "周二和周四，下午2点至5点" },
+    contactPhone: "6987 1100",
+    languages: ["en", "zh-Hans", "ms"],
+    accessibilityFeatures: [{ en: "Seated waiting area", "zh-Hans": "有座位等候区" }],
+    practicalNotes: [{ en: "Bring phone, Singpass app, and any letter you received.", "zh-Hans": "请带手机、Singpass 应用和收到的信件。" }],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "seed",
+    currentHazardStatus: "none",
+    details: {
+      type: "digital_form_help",
+      helpTypes: ["Singpass", "CDC vouchers", "online forms"],
+      appointmentRequired: false,
+      documentsNeeded: ["phone", "letter", "Singpass app if available"],
+      singpassHelpAvailable: true,
+      voucherHelpAvailable: true,
+    },
+    createdAt: "2026-05-09T00:00:00+08:00",
+    updatedAt: "2026-05-09T08:00:00+08:00",
+  },
+];
+
+export const workerDemoRoutes: Record<string, RouteOption[]> = {
+  "senior-corner": [
+    {
+      id: "senior-corner-wheelchair",
+      destinationResourceId: "senior-corner",
+      mode: "wheelchair",
+      durationMinutes: 6,
+      distanceMeters: 280,
+      isRecommended: true,
+      providerLabel: "Wheelchair-friendly preview route",
+      origin: {
+        latitude: 1.30218,
+        longitude: 103.85092,
+        label: { en: "Kawan kiosk at Block 123 void deck", "zh-Hans": "第123座组屋楼下 Kawan 服务亭" },
+      },
+      polyline: [
+        { latitude: 1.30218, longitude: 103.85092 },
+        { latitude: 1.30232, longitude: 103.85108 },
+        { latitude: 1.30272, longitude: 103.85155 },
+      ],
+      notes: [{ en: "Mostly sheltered and step-free.", "zh-Hans": "大部分有盖且无台阶。" }],
+      steps: [
+        {
+          id: "w1",
+          instruction: { en: "Leave the kiosk and turn right toward lift lobby A.", "zh-Hans": "离开服务亭后右转，走向A电梯厅。" },
+          distanceMeters: 60,
+          durationMinutes: 1,
+          latitude: 1.30228,
+          longitude: 103.85102,
+        },
+      ],
+    },
+  ],
+};

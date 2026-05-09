@@ -168,14 +168,17 @@ type ResourceCategory =
   | "pickup_dropoff"
   | "equipment"
   | "digital_form_help"
-  | "caregiver_waiting_spot";
+  | "caregiver_waiting_spot"
+  | "senior_activity"
+  | "rc_centre"
+  | "clinic";
 
 type Resource = {
   id: string;
-  name: string;
+  name: string | Record<string, string>; // Kawan directory UI may use BCP-47 localized copy with English fallback.
   category: ResourceCategory;
-  description: string;
-  address: string;
+  description: string | Record<string, string>;
+  address: string | Record<string, string>;
   latitude: number;
   longitude: number;
   openingHours?: string;

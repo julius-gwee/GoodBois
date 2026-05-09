@@ -62,6 +62,179 @@ export type Receipt = {
   generatedAt: string;
 };
 
+export type DirectoryLanguage = "en" | "zh-Hans" | "nan-Hant" | "ms" | "ta";
+
+export type LocalizedText = Partial<Record<DirectoryLanguage, string>> & {
+  en: string;
+};
+
+export type VerificationStatus =
+  | "verified"
+  | "community_submitted"
+  | "needs_recheck"
+  | "unknown";
+
+export type ResourceCategory =
+  | "accessible_restroom"
+  | "pickup_dropoff"
+  | "equipment"
+  | "digital_form_help"
+  | "caregiver_waiting_spot"
+  | "senior_activity"
+  | "rc_centre"
+  | "clinic";
+
+export type ResourcePhoto = {
+  id: string;
+  url: string;
+  alt: string;
+  capturedAt?: string;
+};
+
+export type ResourceDetails =
+  | {
+      type: "accessible_restroom";
+      floor?: string;
+      nearestLift?: string;
+      caregiverEntryPossible?: boolean;
+      adultChangingBench?: boolean;
+      doorSpaceNotes?: string;
+      cleanlinessNotes?: string;
+    }
+  | {
+      type: "pickup_dropoff";
+      sheltered?: boolean;
+      vehicleTypeSupported: string[];
+      routeToEntrance?: string;
+      wheelchairTaxiSuitable?: boolean;
+      waitingAreaNotes?: string;
+      obstacleNotes?: string;
+    }
+  | {
+      type: "equipment";
+      equipmentTypes: string[];
+      availabilityStatus?: "available" | "limited" | "call_ahead" | "unknown";
+      deposit?: string;
+      rentalCost?: string;
+      eligibility?: string;
+      collectionInstructions?: string;
+    }
+  | {
+      type: "digital_form_help";
+      helpTypes: string[];
+      appointmentRequired?: boolean;
+      documentsNeeded: string[];
+      singpassHelpAvailable?: boolean;
+      voucherHelpAvailable?: boolean;
+    }
+  | {
+      type: "caregiver_waiting_spot";
+      seating?: string;
+      quietness?: "quiet" | "moderate" | "busy" | "unknown";
+      chargingAvailable?: boolean;
+      foodNearby?: boolean;
+      supportActivityAvailable?: boolean;
+    }
+  | {
+      type: "senior_activity";
+      activities: string[];
+      sheltered?: boolean;
+      dropInFriendly?: boolean;
+    }
+  | {
+      type: "rc_centre";
+      services: string[];
+      volunteerHours?: string;
+      mpSessionInfo?: string;
+    }
+  | {
+      type: "clinic";
+      services: string[];
+      appointmentRequired?: boolean;
+      dialysisSupportNearby?: boolean;
+    };
+
+export type Resource = {
+  id: string;
+  name: LocalizedText;
+  category: ResourceCategory;
+  description: LocalizedText;
+  address: LocalizedText;
+  latitude: number;
+  longitude: number;
+  openingHours?: LocalizedText;
+  contactPhone?: string;
+  contactUrl?: string;
+  costType?: "free" | "paid" | "subsidised" | "unknown";
+  languages: DirectoryLanguage[];
+  accessibilityFeatures: LocalizedText[];
+  practicalNotes: LocalizedText[];
+  photos: ResourcePhoto[];
+  verificationStatus: VerificationStatus;
+  lastVerifiedAt?: string;
+  verifiedByRole?: string;
+  confidenceLevel: "high" | "medium" | "low";
+  source: "seed" | "community" | "partner" | "official";
+  mapProviderReference?: string;
+  routeNotes?: LocalizedText[];
+  currentHazardStatus?: "none" | "caution" | "avoid" | "unknown";
+  linkedAgencyKey?: string;
+  details: ResourceDetails;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RouteMode = "walk" | "wheelchair" | "drive";
+
+export type RouteStep = {
+  id: string;
+  instruction: LocalizedText;
+  distanceMeters: number;
+  durationMinutes: number;
+  latitude: number;
+  longitude: number;
+  caution?: LocalizedText;
+};
+
+export type RouteOption = {
+  id: string;
+  destinationResourceId: string;
+  mode: RouteMode;
+  durationMinutes: number;
+  distanceMeters: number;
+  isRecommended: boolean;
+  providerLabel: string;
+  origin: {
+    latitude: number;
+    longitude: number;
+    label: LocalizedText;
+  };
+  polyline: Array<{
+    latitude: number;
+    longitude: number;
+  }>;
+  notes: LocalizedText[];
+  steps: RouteStep[];
+};
+
+export type ResourceFilters = {
+  query?: string;
+  category?: ResourceCategory | "all";
+  language?: DirectoryLanguage | "all";
+  requireWheelchairFriendly?: boolean;
+};
+
+export type RoutePrintPayload = {
+  destinationName: string;
+  routeMode: RouteMode;
+  distanceMeters: number;
+  durationMinutes: number;
+  generatedAt: string;
+  kioskLocation: string;
+  steps: string[];
+  disclaimerEnglish: string;
+};
+
 export type TurnRequest = {
   sessionId?: string;
   kioskId: string;
@@ -89,9 +262,12 @@ export type TurnResponse = {
     outcome: TriageOutcome;
     confidence: "high" | "medium" | "low";
     selectedToolName?: string;
-    selectedAgencyKey?: string;
+      selectedAgencyKey?: string;
+      selectedResourceId?: string;
   };
   agencyContact?: AgencyContact;
+  nearbyResources?: Resource[];
+  routeOptions?: RouteOption[];
   case?: Case;
   receipt?: Receipt;
   audioUrl?: string;

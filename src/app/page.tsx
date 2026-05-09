@@ -1,16 +1,25 @@
-export default function Home() {
+import { KawanDirectoryApp } from "@/components/map/KawanDirectoryApp";
+import type { DirectoryLanguage } from "@/types/goodbois";
+
+const supportedLanguages: DirectoryLanguage[] = ["en", "zh-Hans", "nan-Hant", "ms", "ta"];
+
+type HomeProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function Home({ searchParams }: HomeProps) {
+  const params = (await searchParams) ?? {};
+  const languageParam = Array.isArray(params.language) ? params.language[0] : params.language;
+  const fromParam = Array.isArray(params.from) ? params.from[0] : params.from;
+  const sessionId = Array.isArray(params.sessionId) ? params.sessionId[0] : params.sessionId;
+  const initialLanguage = supportedLanguages.includes(languageParam as DirectoryLanguage)
+    ? (languageParam as DirectoryLanguage)
+    : "en";
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-neutral-950 p-8 text-center text-white">
-      <div className="max-w-3xl space-y-4">
-        <p className="text-lg font-medium text-emerald-300">GoodBois build scaffold</p>
-        <h1 className="text-5xl font-semibold tracking-normal">
-          Void-deck voice kiosk for elderly residents
-        </h1>
-        <p className="text-xl leading-8 text-neutral-200">
-          The legacy Supabase/FastAPI starter has been removed. Build the kiosk UI
-          against the mock `POST /turn` contract, then wire the Cloudflare Worker.
-        </p>
-      </div>
-    </main>
+    <KawanDirectoryApp
+      initialLanguage={initialLanguage}
+      initialFromChat={Boolean(sessionId) || fromParam === "chat"}
+    />
   );
 }
