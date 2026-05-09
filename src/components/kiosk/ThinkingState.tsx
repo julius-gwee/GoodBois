@@ -4,7 +4,7 @@ import TranscriptPanel from "@/components/atoms/TranscriptPanel";
 import { cn } from "@/lib/utils";
 
 type ThinkingStateProps = {
-  transcript: { original: string; english?: string; language: string } | null;
+  transcript: { english: string; srcLang: string } | null;
   onCancel: () => void;
   className?: string;
 };

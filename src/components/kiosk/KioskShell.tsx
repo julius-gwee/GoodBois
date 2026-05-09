@@ -10,7 +10,7 @@ import ChatState, { type ChatEntry } from "./ChatState";
 import ReceiptState from "./ReceiptState";
 import Wordmark from "./Wordmark";
 import { mockTurnResponses } from "@/lib/mock-turn-fixtures";
-import type { Receipt, TurnResponse } from "@/types/goodbois";
+import type { TurnResponse } from "@/types/goodbois";
 import { cn } from "@/lib/utils";
 
 const KAWAN_API_BASE =
@@ -21,26 +21,19 @@ const KAWAN_API_BASE =
 const USE_REAL_TURN = Boolean(KAWAN_API_BASE);
 
 async function fetchTurn(payload: {
-  sessionId: string;
+  sessionId?: string;
   kioskId: string;
-  language: string;
   text?: string;
   audioBase64?: string;
-  turnCount: number;
 }): Promise<TurnResponse | null> {
   if (!KAWAN_API_BASE) return null;
   try {
     const res = await fetch(`${KAWAN_API_BASE.replace(/\/$/, "")}/turn`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-kawan-turn-count": String(payload.turnCount),
-      },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         sessionId: payload.sessionId,
         kioskId: payload.kioskId,
-        language: payload.language,
-        mode: "voice",
         text: payload.text,
         audioBase64: payload.audioBase64,
       }),
@@ -213,19 +206,21 @@ const SIMULATED_THINKING_MS = 1_500;
 const PULSE_INTERVAL_MS = 500;
 const TYPE_INTERVAL_MS = 80;
 
-// Demo turn sequence; cycles back to last entry if user keeps tapping.
-const TURN_SEQUENCE = ["initial_request", "followup_answer"] as const;
+// Mock-mode walks this sequence on successive turns. Real-mode is driven by
+// the backend's TurnResponse.state and ignores these.
+const MOCK_TURN_SEQUENCE = ["followup_listening", "done_signpost"] as const;
 const DEFAULT_LANGUAGE = "zh-Hans";
 
 export default function KioskShell() {
   const [state, setState] = useState<KioskState>("idle");
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [transcript, setTranscript] = useState<
-    { original: string; english?: string; language: string } | null
+    { english: string; srcLang: string } | null
   >(null);
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [pulseToken, setPulseToken] = useState(0);
 
+  const sessionIdRef = useRef<string | null>(null);
   const turnIndexRef = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -248,8 +243,9 @@ export default function KioskShell() {
     setState("idle");
     setMessages([]);
     setTranscript(null);
-    setReceipt(null);
+    setReceiptUrl(null);
     setPulseToken(0);
+    sessionIdRef.current = null;
     turnIndexRef.current = 0;
   }, [clearAllTimers]);
 
@@ -263,14 +259,17 @@ export default function KioskShell() {
     };
   }, [state, messages.length, pulseToken, resetToIdle]);
 
-  // Listening: pulse blob, type transcript, auto-advance to thinking
+  // Listening: pulse blob, type-out the mock fixture transcript while we
+  // capture from the mic in parallel, then advance to thinking.
   useEffect(() => {
     if (state !== "listening") return;
 
     const fixtureKey =
-      TURN_SEQUENCE[Math.min(turnIndexRef.current, TURN_SEQUENCE.length - 1)];
+      MOCK_TURN_SEQUENCE[
+        Math.min(turnIndexRef.current, MOCK_TURN_SEQUENCE.length - 1)
+      ];
     const fixture = mockTurnResponses[fixtureKey];
-    const target = fixture?.transcript;
+    const targetTranscript = fixture?.transcript ?? null;
 
     pulseTimerRef.current = setInterval(() => {
       setPulseToken((t) => t + 1);
@@ -299,21 +298,17 @@ export default function KioskShell() {
       });
     }
 
-    if (target) {
+    if (targetTranscript) {
       let charIdx = 0;
       typeTimerRef.current = setInterval(() => {
         charIdx++;
-        if (charIdx > target.original.length) {
+        if (charIdx > targetTranscript.english.length) {
           if (typeTimerRef.current) clearInterval(typeTimerRef.current);
           return;
         }
-        const ratio = charIdx / target.original.length;
         setTranscript({
-          original: target.original.slice(0, charIdx),
-          english: target.english
-            ? target.english.slice(0, Math.floor(ratio * target.english.length))
-            : undefined,
-          language: target.language,
+          english: targetTranscript.english.slice(0, charIdx),
+          srcLang: targetTranscript.srcLang,
         });
       }, TYPE_INTERVAL_MS);
     }
@@ -329,7 +324,8 @@ export default function KioskShell() {
     };
   }, [state]);
 
-  // Thinking: process, then push messages and advance to chat
+  // Thinking: POST /turn (real) or use the mock fixture, then route into
+  // the chat / receipt state based on response.state.
   useEffect(() => {
     if (state !== "thinking") return;
 
@@ -337,79 +333,70 @@ export default function KioskShell() {
 
     const processTurn = async () => {
       const fixtureKey =
-        TURN_SEQUENCE[Math.min(turnIndexRef.current, TURN_SEQUENCE.length - 1)];
+        MOCK_TURN_SEQUENCE[
+          Math.min(turnIndexRef.current, MOCK_TURN_SEQUENCE.length - 1)
+        ];
       const mockFixture = mockTurnResponses[fixtureKey];
-
       const speech = capturedSpeechRef.current;
+
       let response: TurnResponse | null = null;
-      if (USE_REAL_TURN && mockFixture?.transcript) {
-        const fallbackText = mockFixture?.transcript?.original;
+      if (USE_REAL_TURN) {
+        const fallbackText = mockFixture?.transcript?.english;
         response = await fetchTurn({
-          sessionId: `kawan-${Date.now()}`,
+          sessionId: sessionIdRef.current ?? undefined,
           kioskId: "demo-laptop",
-          language:
-            speech?.kind === "text"
-              ? speech.language
-              : mockFixture?.transcript?.language ?? DEFAULT_LANGUAGE,
           text:
             speech?.kind === "text"
               ? speech.transcript
               : speech
                 ? undefined
                 : fallbackText,
-          audioBase64:
-            speech?.kind === "audio" ? speech.base64 : undefined,
-          turnCount: turnIndexRef.current,
+          audioBase64: speech?.kind === "audio" ? speech.base64 : undefined,
         });
       }
 
-      // Wait at least the simulated thinking time so the UI doesn't flash
+      // Wait at least the simulated thinking time so the UI doesn't flash.
       await new Promise((r) => setTimeout(r, SIMULATED_THINKING_MS));
       if (cancelled) return;
 
-      const fixture = response ?? mockFixture;
-      if (!fixture) {
+      const turnResponse = response ?? mockFixture;
+      if (!turnResponse) {
         resetToIdle();
         return;
       }
+
+      sessionIdRef.current = turnResponse.sessionId;
 
       const stamp = Date.now();
       const userText =
         speech?.kind === "text" && speech.transcript
           ? speech.transcript
-          : fixture.transcript?.original ?? mockFixture?.transcript?.original;
+          : turnResponse.transcript?.english;
 
-      const userEntry: ChatEntry | null = userText
-        ? {
-            id: `user-${stamp}`,
-            role: "user",
-            text: userText,
-            englishText: fixture.transcript?.english,
-            language:
-              fixture.transcript?.language ??
-              (speech?.kind === "text"
-                ? speech.language
-                : DEFAULT_LANGUAGE),
-          }
-        : null;
-
-      const agentEntry: ChatEntry = {
+      const newEntries: ChatEntry[] = [];
+      if (userText) {
+        newEntries.push({
+          id: `user-${stamp}`,
+          role: "user",
+          text: userText,
+          language:
+            turnResponse.transcript?.srcLang ??
+            (speech?.kind === "text" ? speech.language : DEFAULT_LANGUAGE),
+        });
+      }
+      newEntries.push({
         id: `agent-${stamp}`,
         role: "agent",
-        text: fixture.kioskMessage.original,
-        englishText: fixture.kioskMessage.english,
-        language: fixture.kioskMessage.language,
-        agency: fixture.agencyContact,
-      };
+        text: turnResponse.kioskMessage,
+        language: turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
+      });
 
-      setMessages((prev) => [
-        ...prev,
-        ...(userEntry ? [userEntry] : []),
-        agentEntry,
-      ]);
+      setMessages((prev) => [...prev, ...newEntries]);
       setTranscript(null);
 
-      const audioToPlay = response?.audioUrl;
+      // Play kiosk audio (backend TTS) if present; otherwise fall back to
+      // browser speechSynthesis using the source language.
+      const audioToPlay = turnResponse.audioUrl;
       if (audioToPlay) {
         try {
           if (audioPlayerRef.current) {
@@ -424,20 +411,34 @@ export default function KioskShell() {
         } catch {
           // No-op.
         }
-      } else if (fixture.kioskMessage) {
-        // No backend audio; use browser SpeechSynthesis.
+      } else {
         speakViaBrowser(
-          fixture.kioskMessage.original,
-          fixture.kioskMessage.language,
+          turnResponse.kioskMessage,
+          turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
         );
       }
 
-      turnIndexRef.current = Math.min(
-        turnIndexRef.current + 1,
-        TURN_SEQUENCE.length
-      );
       capturedSpeechRef.current = null;
-      setState("chat");
+
+      if (turnResponse.state === "followup") {
+        // Bump the mock cursor so a follow-up turn pulls the next fixture.
+        turnIndexRef.current = Math.min(
+          turnIndexRef.current + 1,
+          MOCK_TURN_SEQUENCE.length - 1,
+        );
+        // Show the chat history briefly, then reopen the mic for the next
+        // user utterance. The session is preserved via sessionIdRef.
+        setState("chat");
+      } else if (turnResponse.state === "done") {
+        if (turnResponse.receiptUrl) {
+          setReceiptUrl(turnResponse.receiptUrl);
+        }
+        setState("chat");
+      } else {
+        // "listening" state shouldn't reach the frontend in this code path;
+        // treat it as a soft reset.
+        setState("chat");
+      }
     };
 
     processTurn();
@@ -482,12 +483,8 @@ export default function KioskShell() {
     }
   };
 
-  const handleSaveReceipt = () => {
-    const fixture = mockTurnResponses.accept_escalation;
-    if (fixture?.receipt) {
-      setReceipt(fixture.receipt);
-      setState("receipt");
-    }
+  const handleViewReceipt = () => {
+    if (receiptUrl) setState("receipt");
   };
 
   const blobMode: "idle" | "listening" | "thinking" =
@@ -496,8 +493,8 @@ export default function KioskShell() {
   const showBlob = state !== "receipt";
   const isChatLayout = state === "chat";
 
-  if (state === "receipt" && receipt) {
-    return <ReceiptState receipt={receipt} onBack={resetToIdle} />;
+  if (state === "receipt" && receiptUrl) {
+    return <ReceiptState receiptUrl={receiptUrl} onBack={resetToIdle} />;
   }
 
   return (
@@ -518,8 +515,7 @@ export default function KioskShell() {
         {isChatLayout && (
           <ChatState
             messages={messages}
-            language={DEFAULT_LANGUAGE}
-            onSaveReceipt={handleSaveReceipt}
+            onViewReceipt={receiptUrl ? handleViewReceipt : undefined}
             onReset={resetToIdle}
           />
         )}
