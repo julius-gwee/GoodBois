@@ -25,6 +25,7 @@ async function fetchTurn(payload: {
   kioskId: string;
   language: string;
   text?: string;
+  audioBase64?: string;
   turnCount: number;
 }): Promise<TurnResponse | null> {
   if (!KAWAN_API_BASE) return null;
@@ -41,6 +42,7 @@ async function fetchTurn(payload: {
         language: payload.language,
         mode: "voice",
         text: payload.text,
+        audioBase64: payload.audioBase64,
       }),
     });
     if (!res.ok) return null;
@@ -48,6 +50,77 @@ async function fetchTurn(payload: {
   } catch {
     return null;
   }
+}
+
+type CapturedAudio = { base64: string; mimeType: string };
+
+async function captureAudio(timeoutMs: number): Promise<CapturedAudio | null> {
+  if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return null;
+  }
+
+  let stream: MediaStream | null = null;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    return null;
+  }
+
+  const mimeType =
+    typeof MediaRecorder !== "undefined" &&
+    MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+
+  return new Promise<CapturedAudio | null>((resolve) => {
+    if (!stream) return resolve(null);
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType });
+    } catch {
+      stream.getTracks().forEach((t) => t.stop());
+      return resolve(null);
+    }
+
+    const chunks: BlobPart[] = [];
+    let settled = false;
+    const finish = (value: CapturedAudio | null) => {
+      if (settled) return;
+      settled = true;
+      stream?.getTracks().forEach((t) => t.stop());
+      resolve(value);
+    };
+
+    recorder.addEventListener("dataavailable", (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    });
+    recorder.addEventListener("stop", async () => {
+      try {
+        const blob = new Blob(chunks, { type: mimeType });
+        const buffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        finish({ base64: btoa(binary), mimeType });
+      } catch {
+        finish(null);
+      }
+    });
+    recorder.addEventListener("error", () => finish(null));
+
+    recorder.start();
+    setTimeout(() => {
+      if (recorder.state !== "inactive") {
+        try {
+          recorder.stop();
+        } catch {
+          finish(null);
+        }
+      }
+    }, timeoutMs);
+  });
 }
 
 type KioskState = "idle" | "listening" | "thinking" | "chat" | "receipt";
@@ -76,6 +149,8 @@ export default function KioskShell() {
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const capturedAudioRef = useRef<CapturedAudio | null>(null);
+  const captureInFlightRef = useRef<boolean>(false);
 
   const clearAllTimers = useCallback(() => {
     if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
@@ -118,6 +193,15 @@ export default function KioskShell() {
     pulseTimerRef.current = setInterval(() => {
       setPulseToken((t) => t + 1);
     }, PULSE_INTERVAL_MS);
+
+    if (USE_REAL_TURN) {
+      capturedAudioRef.current = null;
+      captureInFlightRef.current = true;
+      captureAudio(SIMULATED_LISTENING_MS).then((audio) => {
+        capturedAudioRef.current = audio;
+        captureInFlightRef.current = false;
+      });
+    }
 
     if (target) {
       let charIdx = 0;
@@ -166,7 +250,8 @@ export default function KioskShell() {
           sessionId: `kawan-${Date.now()}`,
           kioskId: "demo-laptop",
           language: mockFixture.transcript.language,
-          text: mockFixture.transcript.original,
+          text: capturedAudioRef.current ? undefined : mockFixture.transcript.original,
+          audioBase64: capturedAudioRef.current?.base64,
           turnCount: turnIndexRef.current,
         });
       }
@@ -219,6 +304,7 @@ export default function KioskShell() {
         turnIndexRef.current + 1,
         TURN_SEQUENCE.length
       );
+      capturedAudioRef.current = null;
       setState("chat");
     };
 
