@@ -37,6 +37,7 @@ yarn-error.log*
 workers/.dev.vars
 workers/.wrangler/
 workers/wrangler-dev*.log
+workers/worker-configuration.d.ts
 
 # vercel
 .vercel

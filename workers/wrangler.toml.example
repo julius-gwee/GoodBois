@@ -9,6 +9,7 @@ compatibility_date = "2026-05-09"
 binding = "DB"
 database_name = "goodbois"
 database_id = "replace-with-d1-id"
+migrations_dir = "migrations"
 
 [[kv_namespaces]]
 binding = "SESSION_KV"

@@ -16,6 +16,7 @@ import type {
   ToolResult,
 } from "../types/contracts";
 import type { Repos } from "../db/repos";
+import type { HazardMailer } from "../integrations/email";
 import { signpost, AgencyNotAllowedError } from "./signpost";
 import { reportHazard } from "./reportHazard";
 import { generateReceipt } from "./generateReceipt";
@@ -44,6 +45,7 @@ export type ToolCtx = {
   sessionId: string;
   srcLang: string;
   kioskId?: string;
+  hazardMailer?: HazardMailer;
   priorToolResults: Partial<{
     signpost: SignpostResult;
     reportHazard: ReportHazardResult;
@@ -76,7 +78,11 @@ export async function invokeTool(
       }
 
       case "reportHazard": {
-        const result = await reportHazard(call.args);
+        const result = await reportHazard(call.args, {
+          mailer: ctx.hazardMailer,
+          sessionId: ctx.sessionId,
+          srcLang: ctx.srcLang,
+        });
         return ok(result);
       }
 

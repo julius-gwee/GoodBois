@@ -1,10 +1,18 @@
 // Demo stub per docs/refactor/2026-05-09-llm-turn-decision.md §7.
 // Generates a reference id and logs the report. No D1 row, no external dispatch.
 
+import type { HazardMailer } from "../integrations/email";
+
 export type ReportHazardArgs = {
   category: string;
   location: string;
   description: string;
+};
+
+export type ReportHazardCtx = {
+  mailer?: HazardMailer;
+  sessionId?: string;
+  srcLang?: string;
 };
 
 export type ReportHazardResult = {
@@ -26,7 +34,7 @@ const ROUTING: Record<string, string> = {
 let dailyCounter = 0;
 let counterDate = "";
 
-export async function reportHazard(args: ReportHazardArgs): Promise<ReportHazardResult> {
+export async function reportHazard(args: ReportHazardArgs, ctx?: ReportHazardCtx): Promise<ReportHazardResult> {
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   if (counterDate !== today) {
     counterDate = today;
@@ -36,5 +44,21 @@ export async function reportHazard(args: ReportHazardArgs): Promise<ReportHazard
   const referenceId = `HZ-${today}-${String(dailyCounter).padStart(3, "0")}`;
   const routedTo = ROUTING[args.category.toLowerCase()] ?? "town-council";
   console.log(`[reportHazard:stub] ${referenceId} routedTo=${routedTo}`, args);
+
+  if (ctx?.mailer) {
+    // Fire-and-forget. NEVER block the kiosk on email send.
+    void ctx.mailer({
+      category: args.category,
+      location: args.location,
+      description: args.description,
+      referenceId,
+      routedTo,
+      sessionId: ctx.sessionId,
+      srcLang: ctx.srcLang,
+    }).catch((e) => {
+      console.error(`[reportHazard] email send failed:`, e);
+    });
+  }
+
   return { referenceId, routedTo };
 }
