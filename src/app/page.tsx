@@ -1,44 +1,15 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-gray-50 p-8">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-10 shadow-md text-center">
-        <h1 className="mb-3 text-4xl font-bold text-gray-900">
-          🚀 Hackathon Starter
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-neutral-950 p-8 text-center text-white">
+      <div className="max-w-3xl space-y-4">
+        <p className="text-lg font-medium text-emerald-300">GoodBois build scaffold</p>
+        <h1 className="text-5xl font-semibold tracking-normal">
+          Void-deck voice kiosk for elderly residents
         </h1>
-        <p className="mb-8 text-gray-500">
-          Next.js · TypeScript · Tailwind CSS · Supabase
+        <p className="text-xl leading-8 text-neutral-200">
+          The legacy Supabase/FastAPI starter has been removed. Build the kiosk UI
+          against the mock `POST /turn` contract, then wire the Cloudflare Worker.
         </p>
-
-        {user ? (
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-sm text-gray-600">
-              Signed in as <span className="font-medium">{user.email}</span>
-            </p>
-            <Link
-              href="/dashboard"
-              className="rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-            >
-              Go to Dashboard →
-            </Link>
-          </div>
-        ) : (
-          <Link
-            href="/login"
-            className="rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-          >
-            Get started →
-          </Link>
-        )}
       </div>
     </main>
   );

@@ -21,7 +21,7 @@ This file describes the scaffold prepared before build day. It is intentionally 
 - KV session management.
 - Workers AI STT/TTS/LLM.
 - SEALion translation.
-- Kiosk UI replacement of the starter page.
+- Full kiosk UI replacement of the temporary GoodBois scaffold page.
 
 ## Recommended First Agent Tasks
 
@@ -29,8 +29,8 @@ This file describes the scaffold prepared before build day. It is intentionally 
 2. Dev B: create D1 migration and seed 15-25 `AgencyContact` rows.
 3. Dev B or D: wire Worker `/turn` to return `workers/src/fixtures/golden-demo.ts`.
 4. Dev D: create demo runbook and pre-warm checklist.
-5. Decommission lane: remove Supabase/FastAPI scaffold in one dedicated PR once kiosk shell and Worker scaffold are both visible.
+5. Keep the removed Supabase/FastAPI scaffold out of the repo while the kiosk shell lands.
 
 ## Guardrail
 
-Do not extend the old Supabase/FastAPI scaffold. It exists only to be removed cleanly.
+Do not reintroduce the old Supabase/FastAPI scaffold. The active backend path is `workers/`.

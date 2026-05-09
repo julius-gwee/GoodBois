@@ -44,7 +44,7 @@ When in doubt about scope or polish, prioritise the highest-weight criterion the
 
 - Keep the MVP demoable. Prefer a working vertical slice over broad unfinished coverage.
 - Frontend never calls Workers AI or SEALion directly. All AI calls go through the orchestrator Worker.
-- Cloudflare D1 is the only database. No Supabase. No external Postgres. (FastAPI + Supabase scaffolding still in repo is being decommissioned — don't extend it.)
+- Cloudflare D1 is the only database. No Supabase. No external Postgres. The old FastAPI + Supabase scaffold has been removed; do not reintroduce it.
 - Triage LLM picks from an allowlisted tool surface; it cannot fabricate hotlines or agencies.
 - Kiosk is anonymous by default. Identity capture is optional and only when needed; never NRIC.
 - Bookings are simulated for the demo. Do not call real agency APIs.

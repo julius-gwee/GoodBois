@@ -33,7 +33,7 @@ A voice-first kiosk installed at HDB void decks. Less tech-savvy elderly residen
 - Sonner (toast feedback)
 - date-fns (receipt timestamps, opening hours for the NTH map feature)
 
-**Backend** — Cloudflare-only (target stack; no backend currently shipped that survives — see "Decommission" below):
+**Backend** — Cloudflare-only:
 
 - Cloudflare Workers (TypeScript) — request handlers and orchestrator
 - Cloudflare Workers AI — STT, TTS, and the triage LLM
@@ -49,7 +49,7 @@ A voice-first kiosk installed at HDB void decks. Less tech-savvy elderly residen
 - Pin `.nvmrc` (Node) and Wrangler version in `package.json` engines.
 - Stand up a Cloudflare account + Wrangler auth; verify free-tier limits for Workers AI, D1, R2, KV.
 - Create the D1 schema (driven from `data-contracts.md`).
-- **Decommission**: `server/` (FastAPI), `src/lib/supabase/*`, `src/proxy.ts`, magic-link route handlers, Supabase env vars. Tracked as a separate task — do not `git rm` until that task lands.
+- Keep Supabase/FastAPI out of the repo. The old scaffold has been removed.
 
 ## Architecture
 
@@ -83,7 +83,7 @@ Non-negotiables for any new feature:
 - **Allowlisted tool surface.** The triage LLM picks from the registry; it cannot fabricate hotlines or agencies.
 - **`mapAdapter` boundary stays.** Even though the map is NTH, feature components import from the adapter, not from `react-leaflet` directly.
 - **`docs/standards/data-contracts.md` is the canonical type source.** Worker-side TS types and frontend-side TS types both conform to it. When the contract changes, update that file first, then propagate.
-- **No auth surface.** Kiosk is anonymous. Magic-link auth is being removed. Don't add a new auth flow without a redesign discussion.
+- **No auth surface.** Kiosk is anonymous. Magic-link auth has been removed. Don't add a new auth flow without a redesign discussion.
 
 ## Frontend (`src/`)
 
@@ -107,7 +107,7 @@ Non-negotiables for any new feature:
 | Lint / format | ESLint with `eslint-config-next` | installed | Run via `npm run lint` |
 | Hosting | Cloudflare Pages | planned | Replaces Vercel |
 
-## Backend (Cloudflare Workers, `workers/` — to be created)
+## Backend (Cloudflare Workers, `workers/`)
 
 | Concern | Choice | Status | Notes |
 |---|---|---|---|
@@ -162,7 +162,7 @@ Non-negotiables for any new feature:
 
 | Concern | Choice | Status | Notes |
 |---|---|---|---|
-| Layout | Single repo. Frontend in `src/`. Backend in `workers/` (new). | partial — `src/` exists; `workers/` not yet created | `server/` (FastAPI) decommissioning tracked separately |
+| Layout | Single repo. Frontend in `src/`. Backend in `workers/`. | partial — scaffold exists | FastAPI/Supabase scaffold has been removed |
 | Package manager | npm | installed | Lockfile committed |
 | Lint / format (frontend) | ESLint with `eslint-config-next` | installed | Not Biome |
 | Lint / format (workers) | ESLint + a Workers-friendly config | planned | |
@@ -197,21 +197,24 @@ Non-negotiables for any new feature:
 - Cloudflare bindings (D1, R2, KV, Workers AI, AI Gateway) are configured in `wrangler.toml`, not as env vars
 - Future: agency API keys when bookings move past simulated
 
-**Removed (no longer used; tracked under decommission):**
+**Removed (no longer used):**
 
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `BACKEND_URL`
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`
 - `ANTHROPIC_API_KEY`, `ONEMAP_API_TOKEN` *(may return when AI/map features are picked back up; not in MVP)*
 
-## Decommission (separate task)
+## Decommission Status
 
-These exist in the repo but no longer fit the locked stack. Do not delete them yet — schedule a single decommission task and land it in one PR:
+The pre-pivot FastAPI/Supabase scaffold has been removed:
 
-- `server/` — FastAPI app, Pydantic models, supabase-py client, magic-link router.
-- `src/lib/supabase/*`, `src/proxy.ts`, magic-link route handlers under `src/app/`.
-- Supabase env vars in `.env.example`.
-- `supabase/` directory if present.
-- Doc references to FastAPI / Supabase / magic-link auth in `README.md`, `AGENTS.md`, agent role files (rewritten in this same pass — see `docs/agents/subagents.md`).
+- `server/`
+- `src/lib/supabase/*`
+- `src/proxy.ts`
+- magic-link route handlers and login/dashboard routes
+- Supabase environment variables
+- `supabase/`
+
+Do not reintroduce auth, Supabase, or FastAPI without a product/architecture redesign discussion.
 
 ## Demo-day operational notes
 

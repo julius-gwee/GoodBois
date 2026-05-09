@@ -39,7 +39,7 @@ This checkpoint is intentionally smaller than the full PRD. It lets every lane b
 - Create the mock-first `POST /turn` response fixture and scripted demo fixture before wiring live AI.
 - Frontend scaffold: kiosk shell route + language picker + listening state placeholder (mock data).
 - Worker scaffold: orchestrator skeleton + tool registry + D1 client.
-- Decommission FastAPI / Supabase / magic-link auth (separate PR).
+- Keep removed FastAPI / Supabase / magic-link auth surfaces out of the repo.
 
 ### Phase 2: Parallel Lanes
 

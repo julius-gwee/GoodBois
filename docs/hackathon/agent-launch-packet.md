@@ -122,7 +122,7 @@ The flag should only choose the data source. It must not create a separate UI fl
 
 ## Decommission Guardrail
 
-The repo still contains old starter code from the pre-pivot scaffold:
+The old starter code from the pre-pivot scaffold has been removed:
 
 - `server/`
 - `supabase/`
@@ -132,7 +132,7 @@ The repo still contains old starter code from the pre-pivot scaffold:
 - login/dashboard routes
 - Supabase dependencies and environment variables
 
-Do not extend these files. Either remove them in one decommission PR or leave an explicit "legacy scaffold, do not extend" note in any file an agent might accidentally touch.
+Do not reintroduce these surfaces. GoodBois is anonymous by default, uses Cloudflare D1 as the only database, and runs backend work through `workers/`.
 
 ## Seed Data Ownership
 
@@ -199,4 +199,4 @@ Cut:
 - PDF: likely `@pdf-lib/pdf-lib`.
 - NTH map: `react-leaflet` and OneMap behind `mapAdapter`.
 
-Supabase, FastAPI, magic-link auth, and the dashboard are legacy scaffold surfaces. Do not build new product work on them.
+Supabase, FastAPI, magic-link auth, and the dashboard are removed legacy scaffold surfaces. Do not build new product work on them or re-add them.

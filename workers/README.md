@@ -2,7 +2,7 @@
 
 This directory is the target Cloudflare Worker backend for GoodBois.
 
-Do not put new backend work in `server/`; that directory is legacy FastAPI/Supabase scaffold scheduled for decommission.
+Do not put new backend work in `server/`; the legacy FastAPI/Supabase scaffold has been removed.
 
 ## Build-Day Goal
 

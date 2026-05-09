@@ -1,3 +1,0 @@
-# Migrations are tracked here.
-# Create a new migration with:  supabase migration new <name>
-# Apply migrations locally with: supabase db reset

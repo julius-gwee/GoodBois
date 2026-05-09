@@ -34,7 +34,7 @@ Kiosk plays response, shows on-screen card or full-screen receipt PDF
 
 ## Quick Start
 
-> **Note:** the repo currently includes a FastAPI + Supabase scaffold (`server/`, `src/lib/supabase/*`, `src/proxy.ts`). These are scheduled for decommission as part of the Cloudflare migration. Until that lands, ignore them; the new build sits in `src/` (frontend) + `workers/` (backend, to be created).
+The legacy FastAPI + Supabase scaffold has been removed. The active build sits in `src/` for the kiosk frontend and `workers/` for the Cloudflare Worker backend.
 
 ### 1. Clone & install
 
@@ -52,7 +52,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-### 3. Worker dev (once the Worker is scaffolded)
+### 3. Worker dev
 
 ```bash
 # First time:
@@ -75,6 +75,7 @@ cp .env.example .env.local
 ```env
 NEXT_PUBLIC_WORKER_URL=http://127.0.0.1:8787
 NEXT_PUBLIC_KIOSK_LANG_DEFAULT=en
+NEXT_PUBLIC_SCRIPTED_DEMO=true
 ```
 
 Worker secrets are managed via `wrangler secret put` — see `docs/system-design/tech-stack.md` "Env & secrets".
@@ -127,10 +128,12 @@ For new team members and AI agents:
 
 1. `docs/START_HERE_FOR_NEW_AGENTS.md`
 2. `AGENTS.md` (or `CLAUDE.md` / `.codex/skills/care-access-map/SKILL.md` for tool-specific rules)
-3. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD
-4. `docs/system-design/tech-stack.md` — locked stack
-5. `docs/standards/data-contracts.md` — canonical types
-6. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for, plus GTM / sustainability / regional-scaling docs in the same folder
+3. `docs/hackathon/agent-launch-packet.md` — agent ownership, mock contract, and golden path
+4. `docs/hackathon/build-day-scaffold.md` — scaffold handoff
+5. `docs/care-access-map-prd-and-backlog.md` — kiosk PRD
+6. `docs/system-design/tech-stack.md` — locked stack
+7. `docs/standards/data-contracts.md` — canonical types
+8. `docs/strategy/judging-criteria-alignment.md` — the rubric we're optimising for, plus GTM / sustainability / regional-scaling docs in the same folder
 
 ---
 

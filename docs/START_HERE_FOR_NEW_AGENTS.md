@@ -6,7 +6,7 @@ This file preserves the important context from the kickoff conversations so a ne
 
 - GitHub repo: `https://github.com/julius-gwee/GoodBois`
 - Visibility: public
-- Base template (initial): `https://github.com/pastchum/hackathon-template-with-database-backend` — this scaffolded FastAPI + Supabase, which is being decommissioned in the Cloudflare migration.
+- Base template (initial): `https://github.com/pastchum/hackathon-template-with-database-backend` — this scaffolded FastAPI + Supabase, which has been removed for the Cloudflare migration.
 - Current target stack: Next.js 16 (Cloudflare Pages) + Cloudflare Workers + Workers AI + SEALion + D1 + R2 + KV. See `docs/system-design/tech-stack.md`.
 
 ## Hackathon Context
@@ -140,4 +140,4 @@ For any new agent or developer:
 - `npm install` completed.
 - `npm run lint` passed before this handoff.
 - Repo pushed publicly to GitHub at `https://github.com/julius-gwee/GoodBois`.
-- (Pre-pivot) FastAPI + Supabase scaffold in place. **Scheduled for decommission as part of the Cloudflare migration** — don't extend it.
+- (Pre-pivot) FastAPI + Supabase scaffold removed as part of the Cloudflare migration.
