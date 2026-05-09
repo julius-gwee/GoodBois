@@ -39,7 +39,7 @@ export const mockReceipt: Receipt = {
   sessionId: "demo-session-001",
   caseId: mockCase.id,
   language: "zh-Hans",
-  pdfUrl: "/fixtures/receipts/GBR-20260509-001.pdf",
+  pdfUrl: "/fixtures/receipts/GBR-20260509-001.html",
   generatedAt: "2026-05-09T10:01:00+08:00",
 };
 
@@ -103,6 +103,24 @@ export const mockTurnResponses: Record<string, TurnResponse> = {
     agencyContact: mockAgencyContact,
     case: mockCase,
     receipt: mockReceipt,
+    nextActions: ["reset"],
+  },
+  decline_escalation: {
+    sessionId: "demo-session-001",
+    state: "response",
+    kioskMessage: {
+      original: "好的，请保留 HDB 维修热线。如果之后需要交通援助，可以再来这里。",
+      english:
+        "Okay. Please keep the HDB maintenance hotline. If you need transport help later, come back here.",
+      language: "zh-Hans",
+    },
+    triage: {
+      outcome: "signpost",
+      confidence: "high",
+      selectedToolName: "signpost",
+      selectedAgencyKey: "hdb_essential_maintenance",
+    },
+    agencyContact: mockAgencyContact,
     nextActions: ["reset"],
   },
 };
