@@ -50,7 +50,7 @@ export async function orchestrate(
   const sessionId = req.sessionId ?? newSessionId();
 
   // Load existing session or start a fresh one.
-  let session =
+  const session =
     (req.sessionId ? await deps.repos.sessions.get(req.sessionId) : null) ??
     newSession(sessionId, req.kioskId);
 
@@ -243,7 +243,7 @@ function newSessionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `kiosk-${crypto.randomUUID()}`;
   }
-  return `kiosk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `kiosk-${Date.now()}-fallback`;
 }
 
 function capturePriorResult(
@@ -312,4 +312,3 @@ function errorResponse(
     error: { code, message, fallbackAvailable: true },
   };
 }
-
