@@ -109,6 +109,6 @@ export async function loadRoutes(
 }
 
 function filterRoutes(destinationResourceId: string, mode?: RouteMode): RouteOption[] {
-  const routes = demoRoutes[destinationResourceId] ?? demoRoutes["senior-corner"];
+  const routes = demoRoutes[destinationResourceId] ?? Object.values(demoRoutes)[0] ?? [];
   return mode ? routes.filter((route) => route.mode === mode) : routes;
 }

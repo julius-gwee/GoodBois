@@ -1,84 +1,65 @@
-# Dev C — Concrete TODO
+# Dev C Concrete TODO
 
-**Lane:** `signpost` tool, agency directory, `AgencyContact` schema.
+**Lane:** `signpost` tool, agency directory, `AgencyContact` wayfinding, and NTH map rendering.
 **Subagent helper:** `.claude/agents/map-discovery-agent.md`
-**Canonical spec:** `docs/refactor/2026-05-09-llm-turn-decision.md` (read §4 `signpost`, §13 Dev C section).
+**Canonical spec:** `docs/refactor/2026-05-09-llm-turn-decision.md` and `docs/standards/data-contracts.md`.
 
-This file lists what's left given the current state of the code (verified 2026-05-10). Tick items off as you land them.
-
----
-
-## Current state
-
-- `workers/src/tools/signpost.ts` — exists, validates `agencyKey` against directory, throws `AGENCY_NOT_ALLOWED` for unknown/inactive.
-- `workers/src/db/seeds/agencies.ts` — **18 entries** (target 15–25, on count).
-- `AgencyContact` type in `workers/src/types/contracts.ts:24-36` — has `key`, `name`, `hotline?`, `address?`, `url?`, `openingHours?`, `category`, `multilingualBlurb`, `active`, `source`, `updatedAt`. **Wayfinding fields missing** (`latitude?`, `longitude?`, `walkingDirectionsHint?`).
-- Categories present: `housing`, `transport`, `healthcare`, `social_services`, `legal`, `financial_assistance`, `elderly_activity`, `digital_help`, `mp_meet_the_people`, `rc_visit`. **Missing: `town_council`, hazard-authority entries** (LTA & HDB exist as customer-service entries; not framed as hazard authorities).
+This file tracks Dev C work after the 2026-05-10 `main` merge and the Bukit Merah beachhead pivot.
 
 ---
 
-## 1. Add wayfinding fields to `AgencyContact`
+## Current State
 
-Coordinate with Dev A and Dev B. Update `docs/standards/data-contracts.md` first.
-
-- [ ] Extend `AgencyContact` in `workers/src/types/contracts.ts`:
-  ```ts
-  latitude?: number;
-  longitude?: number;
-  walkingDirectionsHint?: string;
-  ```
-- [ ] These are folded in from the retired `findNearby` tool. Use WGS84.
-
-## 2. Extend the directory
-
-Aim: 15–25 entries spanning every lane the spec mentions. Currently missing:
-
-- [ ] **Town councils** — at least 2–3 entries (per estate area). New `AgencyCategory`: `town_council`.
-  - Examples: `town-council-east-coast`, `town-council-tampines`, `town-council-bedok`.
-- [ ] **Hazard authorities** — explicit entries (in addition to existing customer-service hotlines):
-  - LTA hazard reporting (potholes/road)
-  - HDB hazard reporting (lifts, ceilings, common areas)
-  - MOM (workplace hazards) — new category if you don't fold under `legal`.
-  - NEA (rubbish, pest, hawker hygiene) — new category or fold under existing.
-  - Consider a `hazard_authority` category to make Dev B's routing target clear.
-- [ ] Populate `latitude`, `longitude`, `walkingDirectionsHint` on **routing entries** (polyclinic, hospital, town council, RC, MP, active ageing centre). Leave national hotlines unpopulated (no physical location to walk to).
-
-## 3. Update `AgencyCategory` union
-
-- [ ] Add `town_council` and `hazard_authority` (or whatever you settle on) to the `AgencyCategory` union in `workers/src/types/contracts.ts`.
-- [ ] Update any seed/test code that exhaustively switches on the category.
-
-## 4. Verify `signpost` returns the new fields
-
-- [ ] `signpost(agencyKey)` already returns the full `AgencyContact`, so wayfinding fields propagate automatically once they exist on the record. Add a test that asserts wayfinding fields are returned for a routing entry.
-
-## 5. Multilingual blurbs
-
-- [ ] All entries need `en` + `zh-Hans` minimum. Add `nan-Hant` (Hokkien) where SEALion's coverage allows.
-
-## 6. NTH (Phase 5) — Map render
-
-Defer until MVP demo is locked.
-
-- [ ] `mapAdapter` interface — react-leaflet + OneMap tiles.
-- [ ] OneMap Barrier-Free Access API integration; wheelchair-friendly polyline.
-- [ ] Map render layered on `signpost` results, reusing the agency record's lat/long.
+- `workers/src/tools/signpost.ts` validates `agencyKey` against the directory and rejects unknown/inactive agencies.
+- `workers/src/tools/registry.ts` remains locked to the three MVP LLM tools: `signpost`, `reportHazard`, `generateReceipt`.
+- `/resources` and `/routes` are map UI endpoints, not LLM tools.
+- `AgencyContact` includes optional WGS84 `latitude`, `longitude`, and `walkingDirectionsHint` fields.
+- `AgencyCategory` includes `town_council` and `hazard_authority`.
+- Agency seeds include routeable Queenstown/Bukit Merah entries, MPS, RC, polyclinic, ServiceSG, town council, and hazard-authority records.
+- Map resources link to official agency records with `linkedAgencyKey` where there is a direct agency relationship.
+- The kiosk origin is Blk 3 Jalan Bukit Merah, Singapore 150003.
 
 ---
 
-## Coordination
+## Completed In `juliusc/dev-c`
 
-### Hazard routing — seam with Dev B
+- [x] Extend Worker and frontend `AgencyContact` types with wayfinding fields.
+- [x] Extend Worker and frontend `AgencyCategory` with `town_council` and `hazard_authority`.
+- [x] Seed routeable Dev C agencies:
+  - `queenstown_smc_mps`
+  - `thong_kheng_aac_queenstown`
+  - `hock_san_zone_rc`
+  - `servicesg_bukit_merah`
+  - `bukit_merah_polyclinic`
+  - `bukit_merah_community_centre`
+  - `tanjong_pagar_town_council`
+- [x] Verify `signpost` returns wayfinding fields.
+- [x] Update frontend and Worker map fixtures to Bukit Merah resources with `linkedAgencyKey`.
+- [x] Use OneMap BFA endpoint for wheelchair routes first.
+- [x] Use OneMap public route endpoint for walking and driving.
+- [x] Fall back from BFA to OneMap public walking, then seeded fixture routes.
+- [x] Preserve honest provider metadata while showing friendly UI copy such as `Demo route`.
+- [x] Fit the map viewport to origin, destination, and route polyline with panel-aware padding.
+- [x] Keep print preview, language switching, and route source labels in the directions panel.
+- [x] Return a controlled `/routes` error for unknown destination resources.
 
-Dev B's `reportHazard` returns `routedTo`. Currently a category slug (`town-council`, `lta`, etc.). The canonical convention (per spec §8.2 example) is an `AgencyContact.key` from your directory.
+---
 
-- Land the convention with Dev B before they promote `reportHazard` from stub.
-- Ensure each hazard category Dev B can emit has a matching directory entry.
-- Your directory is canonical — Dev B's category-to-key map references your keys.
+## Remaining Manual Checks
 
-### `AgencyContact` schema — seam with Dev A and Dev B
+- [ ] Run Worker and frontend together.
+- [ ] Open `/map`.
+- [ ] Select a Bukit Merah place.
+- [ ] Verify wheelchair, walk, and drive tabs.
+- [ ] Confirm the route line is visible and the map fits the whole route.
+- [ ] Confirm the source label remains visible in `DirectionsPanel`.
+- [ ] Confirm print preview still renders after switching languages.
+- [ ] Repeat once with valid OneMap credentials if the team has them.
 
-You're primary on the schema. When extending it (wayfinding fields, new categories):
-1. Update `docs/standards/data-contracts.md`.
-2. PR-coordinate with Dev A (orchestrator hydration) and Dev B (receipt hydration).
-3. Land the schema change before consumers depend on the new fields.
+---
+
+## Coordination Notes
+
+- Dev B hazard routing should use `AgencyContact.key` for `routedTo` values.
+- Hazard categories emitted by `reportHazard` should map to a seeded `hazard_authority` or `town_council` agency.
+- New routeable places should add `AgencyContact` wayfinding fields first, then link map resources through `linkedAgencyKey`.

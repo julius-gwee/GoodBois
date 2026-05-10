@@ -24,10 +24,10 @@ export type MapAdapter = {
 };
 
 const bounds = {
-  minLatitude: 1.30145,
-  maxLatitude: 1.303,
-  minLongitude: 103.85045,
-  maxLongitude: 103.85235,
+  minLatitude: 1.2825,
+  maxLatitude: 1.291,
+  minLongitude: 103.803,
+  maxLongitude: 103.821,
 };
 
 function project(latitude: number, longitude: number, id: string): MapPoint {
@@ -48,8 +48,8 @@ export const mapAdapter: MapAdapter = {
   attribution:
     '<img src="https://www.onemap.gov.sg/web-assets/images/logo/om_logo.png" alt="OneMap" style="height:20px;width:20px;vertical-align:middle;margin-right:4px" /> OneMap | Map data © Singapore Land Authority',
   center: {
-    latitude: 1.30218,
-    longitude: 103.85092,
+    latitude: 1.287133554639335,
+    longitude: 103.8070005167375,
   },
   zoom: 18,
   projectResources(resources) {

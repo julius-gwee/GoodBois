@@ -50,7 +50,7 @@ export async function orchestrate(
   const sessionId = req.sessionId ?? newSessionId();
 
   // Load existing session or start a fresh one.
-  let session =
+  const session =
     (req.sessionId ? await deps.repos.sessions.get(req.sessionId) : null) ??
     newSession(sessionId, req.kioskId);
 
@@ -243,7 +243,13 @@ function newSessionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `kiosk-${crypto.randomUUID()}`;
   }
-  return `kiosk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `kiosk-${hex}`;
+  }
+  throw new Error("Secure session ID generation is unavailable in this runtime.");
 }
 
 function capturePriorResult(
@@ -312,4 +318,3 @@ function errorResponse(
     error: { code, message, fallbackAvailable: true },
   };
 }
-

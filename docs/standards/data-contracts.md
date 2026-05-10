@@ -297,8 +297,16 @@ type ResourceCategory =
   | "digital_form_help"
   | "caregiver_waiting_spot"
   | "senior_activity"
+  | "active_ageing"
   | "rc_centre"
-  | "clinic";
+  | "clinic"
+  | "mps"
+  | "government_service"
+  | "community"
+  | "hawker_food"
+  | "groceries"
+  | "mall"
+  | "sports";
 
 type Resource = {
   id: string;
@@ -345,7 +353,17 @@ type ResourceDetails =
   | PickupDropoffDetails
   | EquipmentDetails
   | DigitalFormHelpDetails
-  | WaitingSpotDetails;
+  | WaitingSpotDetails
+  | SeniorActivityDetails
+  | RcCentreDetails
+  | ClinicDetails
+  | MpsDetails
+  | GovernmentServiceDetails
+  | CommunityDetails
+  | HawkerFoodDetails
+  | GroceriesDetails
+  | MallDetails
+  | SportsDetails;
 
 type AccessibleRestroomDetails = {
   type: "accessible_restroom";
@@ -393,6 +411,73 @@ type WaitingSpotDetails = {
   chargingAvailable?: boolean;
   foodNearby?: boolean;
   supportActivityAvailable?: boolean;
+};
+
+type SeniorActivityDetails = {
+  type: "senior_activity";
+  activities: string[];
+  sheltered?: boolean;
+  dropInFriendly?: boolean;
+};
+
+type RcCentreDetails = {
+  type: "rc_centre";
+  services: string[];
+  volunteerHours?: string;
+  mpSessionInfo?: string;
+};
+
+type ClinicDetails = {
+  type: "clinic";
+  services: string[];
+  appointmentRequired?: boolean;
+  dialysisSupportNearby?: boolean;
+};
+
+type MpsDetails = {
+  type: "mps";
+  mpName: string;
+  sessionInfo: string;
+  services: string[];
+};
+
+type GovernmentServiceDetails = {
+  type: "government_service";
+  agencies: string[];
+  services: string[];
+  appointmentRequired?: boolean;
+};
+
+type CommunityDetails = {
+  type: "community";
+  services: string[];
+  meetingHours?: string;
+  dementiaSupport?: boolean;
+};
+
+type HawkerFoodDetails = {
+  type: "hawker_food";
+  foodTypes: string[];
+  marketStalls?: number;
+  foodStalls?: number;
+};
+
+type GroceriesDetails = {
+  type: "groceries";
+  services: string[];
+  paymentOptions?: string[];
+};
+
+type MallDetails = {
+  type: "mall";
+  services: string[];
+  accessibleToilets?: boolean;
+};
+
+type SportsDetails = {
+  type: "sports";
+  facilities: string[];
+  bookingRequired?: boolean;
 };
 ```
 
@@ -504,7 +589,7 @@ POST /routes
 Content-Type: application/json
 
 {
-  "destinationResourceId": "chinatown-aac-jalan-kukoh",
+  "destinationResourceId": "servicesg-bukit-merah",
   "mode": "wheelchair"
 }
 ```
@@ -513,6 +598,7 @@ Rules:
 
 - Worker may call OneMap for live routing when OneMap secrets are configured.
 - If OneMap is unavailable, Worker returns seeded demo routes so the kiosk remains demoable.
+- Current demo seed origin is Blk 3 Jalan Bukit Merah, Singapore 150003.
 - Wheelchair routing must be labelled honestly. If Barrier-Free Access routing is not available through the Worker yet, label the output as a walking/BFA fallback, not a guaranteed wheelchair-safe route.
 - Do not store permanent route traces for anonymous kiosk users.
 

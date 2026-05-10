@@ -13,6 +13,18 @@ const REQUIRED_CATEGORIES: AgencyCategory[] = [
   "digital_help",
   "mp_meet_the_people",
   "rc_visit",
+  "town_council",
+  "hazard_authority",
+];
+
+const ROUTEABLE_KEYS = [
+  "queenstown_smc_mps",
+  "thong_kheng_aac_queenstown",
+  "hock_san_zone_rc",
+  "servicesg_bukit_merah",
+  "bukit_merah_polyclinic",
+  "bukit_merah_community_centre",
+  "tanjong_pagar_town_council",
 ];
 
 describe("agency seed data", () => {
@@ -44,6 +56,16 @@ describe("agency seed data", () => {
     for (const a of agencies) {
       expect(a.active, `${a.key} not active`).toBe(true);
       expect(a.source).toBe("seed");
+    }
+  });
+
+  it("has wayfinding coordinates and hints for routeable Dev C entries", () => {
+    for (const key of ROUTEABLE_KEYS) {
+      const agency = agencies.find((a) => a.key === key);
+      expect(agency, `${key} missing`).toBeTruthy();
+      expect(agency?.latitude, `${key} missing latitude`).toEqual(expect.any(Number));
+      expect(agency?.longitude, `${key} missing longitude`).toEqual(expect.any(Number));
+      expect(agency?.walkingDirectionsHint, `${key} missing walkingDirectionsHint`).toBeTruthy();
     }
   });
 });
