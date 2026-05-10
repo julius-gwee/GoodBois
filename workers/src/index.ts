@@ -7,7 +7,7 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { TurnRequest, TurnResponse } from "./types/contracts";
+import type { ResourceFilters, RouteMode, TurnRequest, TurnResponse } from "./types/contracts";
 import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
@@ -15,9 +15,10 @@ import { makeD1Repos } from "./db/d1";
 import { renderReceiptHtml } from "./receipt/render";
 import { orchestrate, type OrchestratorEnv } from "./orchestrator";
 import { makeHazardMailer } from "./integrations/email";
-import { reportHazard } from "./tools/reportHazard";
+import { findMapResources } from "./tools/findMapResources";
+import { findRoutes, type WorkerEnv } from "./tools/oneMapRouting";
 
-export type WorkerBindings = OrchestratorEnv & {
+export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
   DB?: D1Database;
   WORKER_URL?: string;
   RESEND_API_KEY?: string;
@@ -47,6 +48,42 @@ app.use(
 );
 
 app.get("/health", (c) => c.json({ ok: true, service: "goodbois-worker" }));
+
+app.get("/resources", (c) => {
+  const filters: ResourceFilters = {
+    query: c.req.query("query"),
+    category: (c.req.query("category") as ResourceFilters["category"]) ?? "all",
+    language: (c.req.query("language") as ResourceFilters["language"]) ?? "all",
+  };
+
+  return c.json({ resources: findMapResources(filters) });
+});
+
+app.post("/routes", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    destinationResourceId?: string;
+    mode?: RouteMode;
+  };
+  const resources = findMapResources();
+  const destinationResourceId = body.destinationResourceId ?? resources[0]?.id;
+  const resource = resources.find((candidate) => candidate.id === destinationResourceId);
+  if (!destinationResourceId || !resource) {
+    return c.json(
+      {
+        error: {
+          code: "RESOURCE_NOT_FOUND",
+          message: "Destination resource is not available for route rendering.",
+          fallbackAvailable: true,
+        },
+      },
+      404,
+    );
+  }
+
+  const routes = await findRoutes(resource, body.mode, c.env);
+
+  return c.json({ routes });
+});
 
 app.post("/turn", async (c) => {
   let body: Partial<TurnRequest>;

@@ -24,7 +24,6 @@ import { createMemoryRepos } from "../db/memory";
 import { _resetCounters } from "../db/ids";
 import { resetMockState as resetSttMock } from "../ai/sttAdapter";
 import { agencies as seedAgencies } from "../db/seeds/agencies";
-import type { TurnRequest } from "../types/contracts";
 
 function loadEnvLocal(): Record<string, string> {
   const envPath = path.resolve(__dirname, "../../.env.local");

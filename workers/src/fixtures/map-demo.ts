@@ -1,0 +1,536 @@
+import type { Resource, RouteMode, RouteOption } from "../types/contracts";
+
+export const workerKioskLocation = {
+  latitude: 1.287133554639335,
+  longitude: 103.8070005167375,
+  label: {
+    en: "GoodBois kiosk at Blk 3 Jalan Bukit Merah",
+    "zh-Hans": "GoodBois kiosk at Blk 3 Jalan Bukit Merah",
+    "nan-Hant": "GoodBois kiosk at Blk 3 Jalan Bukit Merah",
+    ms: "Kios GoodBois di Blk 3 Jalan Bukit Merah",
+    ta: "GoodBois kiosk at Blk 3 Jalan Bukit Merah",
+  },
+};
+
+const timestamps = {
+  createdAt: "2026-05-10T00:00:00+08:00",
+  updatedAt: "2026-05-10T00:00:00+08:00",
+};
+
+export const workerDemoResources: Resource[] = [
+  {
+    id: "queenstown-smc-mps",
+    linkedAgencyKey: "queenstown_smc_mps",
+    name: { en: "Queenstown SMC Meet-the-People Session" },
+    category: "mps",
+    description: {
+      en: "Weekly MP session for residents who need help with appeals, letters, municipal issues, or agency follow-up.",
+    },
+    address: { en: "Blk 3 Jalan Bukit Merah, #01-5118, Singapore 150003" },
+    latitude: 1.287133554639335,
+    longitude: 103.8070005167375,
+    openingHours: { en: "Mondays, 7:00 PM - 10:00 PM; closed on public holidays" },
+    contactPhone: "9811 3883",
+    contactUrl: "https://www.tptc.org.sg/our-mps/",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Void-deck level access" }, { en: "Near Blk 3 lift lobbies" }],
+    practicalNotes: [
+      { en: "Eric Chua is listed for Queenstown SMC; bring this printed receipt and any letters or photos." },
+      { en: "Registration and queue conditions may change on public holidays; call before going." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:150003",
+    currentHazardStatus: "none",
+    details: {
+      type: "mps",
+      mpName: "Eric Chua Swee Leong",
+      sessionInfo: "Monday, 7:00 PM - 10:00 PM; except public holidays",
+      services: ["appeals", "agency follow-up", "municipal issues", "letters"],
+    },
+    ...timestamps,
+  },
+  {
+    id: "thong-kheng-aac-community-health-post",
+    linkedAgencyKey: "thong_kheng_aac_queenstown",
+    name: { en: "Thong Kheng Active Ageing Centre and SGH Community Health Post" },
+    category: "active_ageing",
+    description: {
+      en: "Active ageing centre at Blk 3 with senior activities, check-ins, and SGH community health support on selected days.",
+    },
+    address: { en: "Blk 3 Jalan Bukit Merah, #01-5070, Singapore 150003" },
+    latitude: 1.2869998,
+    longitude: 103.8068642,
+    openingHours: {
+      en: "AAC: Mon-Fri 9:00 AM - 5:00 PM, Sat 9:00 AM - 1:00 PM; SGH CHP: Mon-Tue 9:00 AM - 4:00 PM",
+    },
+    contactPhone: "6278 3966",
+    contactUrl: "https://www.sgh.com.sg/community-care/find-a-community-nursing-post",
+    languages: ["en", "zh-Hans", "ms", "ta"],
+    accessibilityFeatures: [{ en: "Ground-floor HDB void-deck unit" }, { en: "Short sheltered walk from kiosk" }],
+    practicalNotes: [
+      { en: "SGH Community Health Post availability is on Monday and Tuesday; call the centre before visiting for health support." },
+      { en: "Useful for seniors who need activity signposting, check-ins, or help understanding health follow-up." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:150003",
+    currentHazardStatus: "none",
+    details: {
+      type: "senior_activity",
+      activities: ["befriending", "health coaching", "senior activities"],
+      sheltered: true,
+      dropInFriendly: true,
+    },
+    ...timestamps,
+  },
+  {
+    id: "hock-san-zone-rc",
+    linkedAgencyKey: "hock_san_zone_rc",
+    name: { en: "Hock San Zone Residents' Committee and Dementia Go-To Point" },
+    category: "community",
+    description: { en: "Local RC touchpoint and Dementia Go-To Point for neighbourhood help and caregiver guidance." },
+    address: { en: "Blk 3 Jalan Bukit Merah, #01-5054, Singapore 150003" },
+    latitude: 1.287166,
+    longitude: 103.806875,
+    openingHours: { en: "Mondays, 6:00 PM - 10:00 PM for Dementia Go-To Point listing; call before visiting" },
+    contactPhone: "6474 1681",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Void-deck level access" }, { en: "Near the kiosk block" }],
+    practicalNotes: [
+      { en: "Use Queenstown Community Centre contact if the RC counter is closed." },
+      { en: "Dementia Go-To Point listing is useful when a confused senior is found nearby." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "medium",
+    source: "official",
+    mapProviderReference: "onemap:150003",
+    currentHazardStatus: "none",
+    details: {
+      type: "community",
+      services: ["RC volunteer help", "dementia go-to point", "neighbourhood referral"],
+      meetingHours: "Monday 6:00 PM - 10:00 PM",
+      dementiaSupport: true,
+    },
+    ...timestamps,
+  },
+  {
+    id: "abc-brickworks-market-food-centre",
+    name: { en: "ABC Brickworks Market & Food Centre" },
+    category: "hawker_food",
+    description: { en: "Nearby hawker centre and market for affordable meals, drinks, and daily market stalls." },
+    address: { en: "6 Jalan Bukit Merah, Singapore 150006" },
+    latitude: 1.286882972614765,
+    longitude: 103.8081312741608,
+    openingHours: { en: "Stall hours vary; market and food stalls open at different times" },
+    contactPhone: "6225 5632",
+    languages: ["en", "zh-Hans", "ms", "ta"],
+    accessibilityFeatures: [{ en: "Ground-level hawker centre" }, { en: "Sheltered seating areas" }],
+    practicalNotes: [
+      { en: "Good first food option from Blk 3; individual stall closures and cleaning schedules vary." },
+      { en: "Bring cash or stored-value card because not every stall supports the same payment options." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:150006",
+    currentHazardStatus: "none",
+    details: { type: "hawker_food", foodTypes: ["hawker meals", "drinks", "wet market"], foodStalls: 96, marketStalls: 48 },
+    ...timestamps,
+  },
+  {
+    id: "fairprice-jalan-bukit-merah",
+    name: { en: "FairPrice Jalan Bukit Merah" },
+    category: "groceries",
+    description: { en: "Closest supermarket for groceries, household supplies, and daily essentials." },
+    address: { en: "1 Jalan Bukit Merah, #01-4500, Singapore 150001" },
+    latitude: 1.286453540301748,
+    longitude: 103.8082424004174,
+    openingHours: { en: "Daily, 8:00 AM - 11:00 PM; call to confirm holiday hours" },
+    contactPhone: "6253 0146",
+    contactUrl: "https://www.fairprice.com.sg/",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Ground-floor neighbourhood shopfront" }, { en: "Short walk from Blk 3" }],
+    practicalNotes: [
+      { en: "Useful for urgent daily essentials, bottled drinks, bread, and household items." },
+      { en: "Store details are seeded from public directory data; verify before production use." },
+    ],
+    photos: [],
+    verificationStatus: "needs_recheck",
+    confidenceLevel: "medium",
+    source: "seed",
+    mapProviderReference: "onemap:150001",
+    currentHazardStatus: "none",
+    details: {
+      type: "groceries",
+      services: ["groceries", "household supplies", "daily essentials"],
+      paymentOptions: ["cash", "cards", "digital payments where accepted"],
+    },
+    ...timestamps,
+  },
+  {
+    id: "ikea-alexandra",
+    name: { en: "IKEA Alexandra" },
+    category: "mall",
+    description: { en: "Large nearby store with restaurant, bistro, accessible toilets, and wheelchair-friendly shopping paths." },
+    address: { en: "317 Alexandra Road, Singapore 159965" },
+    latitude: 1.287943764434407,
+    longitude: 103.8060034122968,
+    openingHours: { en: "Store: Mon-Fri 11:00 AM - 10:00 PM, Sat-Sun 10:00 AM - 10:00 PM; restaurant hours differ" },
+    contactPhone: "6786 6868",
+    contactUrl: "https://www.ikea.com/sg/en/stores/alexandra/",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Wheelchair-accessible restrooms" }, { en: "Wide indoor paths" }, { en: "Food and seating available" }],
+    practicalNotes: [
+      { en: "Good sheltered rest stop with food, toilets, and air-conditioning." },
+      { en: "Restaurant last-order times differ from store hours; check before going for food." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:159965",
+    currentHazardStatus: "none",
+    details: { type: "mall", services: ["restaurant", "bistro", "toilets", "retail"], accessibleToilets: true },
+    ...timestamps,
+  },
+  {
+    id: "anchorpoint-shopping-centre",
+    name: { en: "Anchorpoint Shopping Centre" },
+    category: "mall",
+    description: { en: "Neighbourhood mall with shops, food options, toilets, and shuttle/bus access." },
+    address: { en: "370 Alexandra Road, Singapore 159953" },
+    latitude: 1.288614690305858,
+    longitude: 103.8050099645917,
+    openingHours: { en: "Daily, 8:00 AM - 10:00 PM; individual store hours may vary" },
+    contactUrl: "https://www.anchorpoint.com.sg/gettinghere",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Mall environment with lifts and sheltered areas" }, { en: "Bus stop at Alexandra Road" }],
+    practicalNotes: [
+      { en: "Useful for food, pharmacy-style errands, and an air-conditioned waiting point." },
+      { en: "Individual shop hours vary from mall opening hours." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:159953",
+    currentHazardStatus: "none",
+    details: { type: "mall", services: ["shops", "food", "toilets", "sheltered waiting"], accessibleToilets: true },
+    ...timestamps,
+  },
+  {
+    id: "servicesg-bukit-merah",
+    name: { en: "ServiceSG Centre Bukit Merah" },
+    category: "government_service",
+    description: { en: "One-stop government service centre with assisted access to services across public agencies." },
+    address: { en: "166 Bukit Merah Central, #03-3529A, Singapore 150166" },
+    latitude: 1.283092625749734,
+    longitude: 103.8176672025981,
+    openingHours: { en: "Daily, 9:00 AM - 6:00 PM; closed Sundays and public holidays" },
+    contactPhone: "6031 3890",
+    contactUrl: "https://www.life.gov.sg/services-tools/book-virtual-appointment-servicesg",
+    languages: ["en", "zh-Hans", "ms", "ta"],
+    accessibilityFeatures: [{ en: "Town-centre HDB block with lift access" }, { en: "Private room for video appointments when booked" }],
+    practicalNotes: [
+      { en: "Can help residents access many government services and video appointments closer to home." },
+      { en: "Bring Singpass, phone, and any letters related to the case." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:150166",
+    currentHazardStatus: "none",
+    details: {
+      type: "government_service",
+      agencies: ["ServiceSG", "LifeSG"],
+      services: ["government services", "video appointments", "form help"],
+      appointmentRequired: false,
+    },
+    ...timestamps,
+  },
+  {
+    id: "tanjong-pagar-town-council",
+    linkedAgencyKey: "tanjong_pagar_town_council",
+    name: { en: "Tanjong Pagar Town Council" },
+    category: "government_service",
+    description: { en: "Town council office for estate maintenance, common-area feedback, S&CC, and municipal issues." },
+    address: { en: "166 Bukit Merah Central, #03-3527, Singapore 150166" },
+    latitude: 1.283092625749734,
+    longitude: 103.8176672025981,
+    openingHours: { en: "Mon-Fri, 8:00 AM - 5:00 PM; closed weekends and public holidays" },
+    contactPhone: "1800 272 6415",
+    contactUrl: "https://www.tptc.org.sg/our-mps/",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Town-centre block with lift access" }],
+    practicalNotes: [
+      { en: "Use for common-area hazards, estate maintenance, and municipal feedback." },
+      { en: "For emergencies, call emergency services instead of treating the kiosk route as dispatch." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:150166",
+    currentHazardStatus: "none",
+    details: {
+      type: "government_service",
+      agencies: ["Tanjong Pagar Town Council"],
+      services: ["estate maintenance", "S&CC", "common-area feedback"],
+      appointmentRequired: false,
+    },
+    ...timestamps,
+  },
+  {
+    id: "bukit-merah-polyclinic",
+    linkedAgencyKey: "bukit_merah_polyclinic",
+    name: { en: "SingHealth Polyclinics - Bukit Merah" },
+    category: "clinic",
+    description: {
+      en: "Public primary care clinic for acute care, chronic follow-up, vaccination, health screening, and allied health services.",
+    },
+    address: { en: "Blk 163 Bukit Merah Central, #04-3565, Singapore 150163" },
+    latitude: 1.28370343137554,
+    longitude: 103.8170515228158,
+    openingHours: { en: "Mon-Fri 8:00 AM - 1:00 PM and 2:00 PM - 4:30 PM; Sat 8:00 AM - 12:30 PM; closed Sundays and public holidays" },
+    contactPhone: "6643 6969",
+    contactUrl: "https://polyclinic.singhealth.com.sg/our-polyclinics/shp-bukit-merah",
+    languages: ["en", "zh-Hans", "ms", "ta"],
+    accessibilityFeatures: [{ en: "Accessible by lifts at Blk 162 Bukit Merah Central" }, { en: "Near Bukit Merah Bus Interchange" }],
+    practicalNotes: [
+      { en: "Patients without appointments have earlier last-registration cutoffs; call or use Health Buddy before leaving." },
+      { en: "Bring identification, medication list, and appointment details if any." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:150163",
+    currentHazardStatus: "none",
+    details: {
+      type: "clinic",
+      services: ["acute medical care", "chronic follow-up", "vaccination", "health screening"],
+      appointmentRequired: false,
+    },
+    ...timestamps,
+  },
+  {
+    id: "bukit-merah-community-centre",
+    linkedAgencyKey: "bukit_merah_community_centre",
+    name: { en: "Bukit Merah Community Centre" },
+    category: "community",
+    description: { en: "Community centre with PA counter, courses, facilities, and neighbourhood activities." },
+    address: { en: "4000 Jalan Bukit Merah, Singapore 159465" },
+    latitude: 1.285420091857,
+    longitude: 103.8158981689434,
+    openingHours: { en: "Daily, 9:00 AM - 10:00 PM; payment hours may differ" },
+    contactPhone: "6474 1097",
+    contactUrl: "https://www.pa.gov.sg/our-network/community-clubs/",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Community-centre facilities" }, { en: "Call before visiting for room/event access" }],
+    practicalNotes: [
+      { en: "Useful for PA programmes, community activities, and volunteer referral." },
+      { en: "Seeded hours are from public directory data; call before visiting." },
+    ],
+    photos: [],
+    verificationStatus: "needs_recheck",
+    confidenceLevel: "medium",
+    source: "official",
+    mapProviderReference: "onemap:159465",
+    currentHazardStatus: "none",
+    details: { type: "community", services: ["PA counter", "courses", "community activities", "facility booking"] },
+    ...timestamps,
+  },
+  {
+    id: "delta-sport-centre",
+    name: { en: "Delta Sport Centre" },
+    category: "sports",
+    description: { en: "Nearby ActiveSG sport centre with gym, sports hall, pool, and Active Health Lab." },
+    address: { en: "900 Tiong Bahru Road, Singapore 158790" },
+    latitude: 1.29049546240195,
+    longitude: 103.820437113779,
+    openingHours: { en: "Daily, 7:00 AM - 10:00 PM; check facility closure notices before visiting" },
+    contactPhone: "6203 9246",
+    contactUrl: "https://www.activesgcircle.gov.sg/facilities/delta-sport-centre",
+    languages: ["en", "zh-Hans"],
+    accessibilityFeatures: [{ en: "Sport centre with staffed facilities" }, { en: "Check individual facility accessibility before booking" }],
+    practicalNotes: [
+      { en: "Use for gentle exercise options, Active Health Lab programmes, and community sport facilities." },
+      { en: "Some activities require ActiveSG booking; closure notices may affect availability." },
+    ],
+    photos: [],
+    verificationStatus: "verified",
+    confidenceLevel: "high",
+    source: "official",
+    mapProviderReference: "onemap:158790",
+    currentHazardStatus: "none",
+    details: { type: "sports", facilities: ["sports hall", "gym", "pool", "Active Health Lab"], bookingRequired: true },
+    ...timestamps,
+  },
+];
+
+function routeWaypoints(resource: Resource) {
+  const origin = { latitude: workerKioskLocation.latitude, longitude: workerKioskLocation.longitude };
+  const bukitMerahCorridor = [
+    { latitude: 1.28702, longitude: 103.80762 },
+    { latitude: 1.28655, longitude: 103.8099 },
+    { latitude: 1.28595, longitude: 103.8124 },
+    { latitude: 1.28495, longitude: 103.8148 },
+  ];
+
+  if (resource.id === "queenstown-smc-mps" || resource.id === "thong-kheng-aac-community-health-post" || resource.id === "hock-san-zone-rc") {
+    return [
+      origin,
+      { latitude: 1.28722, longitude: 103.80692 },
+      { latitude: 1.28708, longitude: 103.80682 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  if (resource.longitude < workerKioskLocation.longitude) {
+    return [
+      origin,
+      { latitude: 1.28755, longitude: 103.80655 },
+      { latitude: 1.28805, longitude: 103.80585 },
+      { latitude: 1.28832, longitude: 103.80535 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  if (resource.id === "abc-brickworks-market-food-centre" || resource.id === "fairprice-jalan-bukit-merah") {
+    return [
+      origin,
+      { latitude: 1.28698, longitude: 103.80735 },
+      { latitude: 1.28678, longitude: 103.80782 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  if (
+    resource.id === "servicesg-bukit-merah" ||
+    resource.id === "tanjong-pagar-town-council" ||
+    resource.id === "bukit-merah-polyclinic"
+  ) {
+    return [
+      origin,
+      ...bukitMerahCorridor,
+      { latitude: 1.2842, longitude: 103.81625 },
+      { latitude: 1.28365, longitude: 103.81704 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  if (resource.id === "bukit-merah-community-centre") {
+    return [
+      origin,
+      ...bukitMerahCorridor.slice(0, 3),
+      { latitude: 1.28546, longitude: 103.81534 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  if (resource.id === "delta-sport-centre") {
+    return [
+      origin,
+      ...bukitMerahCorridor,
+      { latitude: 1.28435, longitude: 103.81735 },
+      { latitude: 1.2861, longitude: 103.81935 },
+      { latitude: 1.28835, longitude: 103.8201 },
+      { latitude: resource.latitude, longitude: resource.longitude },
+    ];
+  }
+
+  return [
+    origin,
+    ...bukitMerahCorridor,
+    { latitude: resource.latitude, longitude: resource.longitude },
+  ];
+}
+
+function routeSteps(resource: Resource, mode: RouteMode) {
+  const points = routeWaypoints(resource);
+  return [
+    {
+      id: `${resource.id}-${mode}-step-1`,
+      instruction: { en: "Leave the kiosk and move to the sheltered path beside Blk 3." },
+      distanceMeters: 60,
+      durationMinutes: 1,
+      latitude: points[1].latitude,
+      longitude: points[1].longitude,
+    },
+    {
+      id: `${resource.id}-${mode}-step-2`,
+      instruction: { en: "Follow the mapped path and use signalised crossings where available." },
+      distanceMeters: 120,
+      durationMinutes: 2,
+      latitude: points[Math.min(2, points.length - 1)].latitude,
+      longitude: points[Math.min(2, points.length - 1)].longitude,
+    },
+    {
+      id: `${resource.id}-${mode}-step-3`,
+      instruction: { en: `Continue to ${resource.name.en}; check signs at the block, mall, or counter.` },
+      distanceMeters: 120,
+      durationMinutes: 3,
+      latitude: resource.latitude,
+      longitude: resource.longitude,
+    },
+  ];
+}
+
+function buildRoutes(resource: Resource): RouteOption[] {
+  const polyline = routeWaypoints(resource);
+  const far = Math.abs(resource.longitude - workerKioskLocation.longitude) > 0.006 || Math.abs(resource.latitude - workerKioskLocation.latitude) > 0.004;
+
+  return [
+    {
+      id: `${resource.id}-wheelchair`,
+      destinationResourceId: resource.id,
+      mode: "wheelchair",
+      durationMinutes: far ? 18 : 6,
+      distanceMeters: far ? 1200 : 320,
+      isRecommended: true,
+      providerLabel: "Wheelchair-friendly fixture fallback",
+      origin: workerKioskLocation,
+      polyline,
+      notes: [{ en: "Demo fallback route. Confirm ramps, lifts, and crossing conditions before leaving." }],
+      steps: routeSteps(resource, "wheelchair"),
+    },
+    {
+      id: `${resource.id}-walk`,
+      destinationResourceId: resource.id,
+      mode: "walk",
+      durationMinutes: far ? 14 : 5,
+      distanceMeters: far ? 1050 : 260,
+      isRecommended: false,
+      providerLabel: "Walking fixture fallback",
+      origin: workerKioskLocation,
+      polyline,
+      notes: [{ en: "Demo walking route for offline fallback mode." }],
+      steps: routeSteps(resource, "walk"),
+    },
+    {
+      id: `${resource.id}-drive`,
+      destinationResourceId: resource.id,
+      mode: "drive",
+      durationMinutes: far ? 7 : 3,
+      distanceMeters: far ? 1600 : 520,
+      isRecommended: false,
+      providerLabel: "Driving fixture fallback",
+      origin: workerKioskLocation,
+      polyline,
+      notes: [{ en: "Use legal pickup/drop-off points and avoid blocking service roads." }],
+      steps: routeSteps(resource, "drive"),
+    },
+  ];
+}
+
+export const workerDemoRoutes: Record<string, RouteOption[]> = Object.fromEntries(
+  workerDemoResources.map((resource) => [resource.id, buildRoutes(resource)]),
+);

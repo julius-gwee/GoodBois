@@ -259,12 +259,13 @@ function newSession(id: string, kioskId: string): KioskSession {
 }
 
 function newSessionId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `kiosk-${crypto.randomUUID()}`;
+  const runtimeCrypto = globalThis.crypto as Crypto | undefined;
+  if (runtimeCrypto?.randomUUID) {
+    return `kiosk-${runtimeCrypto.randomUUID()}`;
   }
-  if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
+  if (runtimeCrypto?.getRandomValues) {
     const bytes = new Uint8Array(16);
-    crypto.getRandomValues(bytes);
+    runtimeCrypto.getRandomValues(bytes);
     const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
     return `kiosk-${hex}`;
   }
