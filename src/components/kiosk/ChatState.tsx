@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Eye, X } from "lucide-react";
 import ChatMessage from "@/components/atoms/ChatMessage";
+import { useUILang, useUIStrings } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 
 export type ChatEntry = {
@@ -25,6 +26,8 @@ export default function ChatState({
   onReset,
   className,
 }: ChatStateProps) {
+  const t = useUIStrings();
+  const lang = useUILang();
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -58,6 +61,7 @@ export default function ChatState({
         <button
           type="button"
           onClick={onReset}
+          lang={lang}
           className={cn(
             "flex items-center gap-2 rounded-full border border-stone-wash bg-soft-cream/80 px-5 py-3",
             "text-base font-medium text-muted-stone hover:bg-deep-linen transition-colors",
@@ -65,12 +69,13 @@ export default function ChatState({
           )}
         >
           <X className="h-4 w-4" aria-hidden="true" />
-          <span>Done · 完成</span>
+          <span>{t.done}</span>
         </button>
         {onViewReceipt && (
           <button
             type="button"
             onClick={onViewReceipt}
+            lang={lang}
             className={cn(
               "flex items-center gap-2 rounded-full bg-forest-sage px-6 py-3",
               "text-base font-semibold text-soft-cream hover:bg-leaf-green transition-colors",
@@ -78,7 +83,7 @@ export default function ChatState({
             )}
           >
             <Eye className="h-4 w-4" aria-hidden="true" />
-            <span>View receipt · 查看收据</span>
+            <span>{t.viewReceipt}</span>
           </button>
         )}
       </div>

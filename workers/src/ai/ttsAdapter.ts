@@ -23,6 +23,11 @@ export type TtsEnv = {
 
 // Workers AI MeloTTS expects "en" / "zh" style codes; map BCP-47 down.
 function toMeloLang(bcp47: string): string {
+  // Hokkien / Cantonese have no MeloTTS voice — best fallback is Mandarin
+  // since the chrome strings are written in Hanzi anyway. The chat reply is
+  // SEALion-translated into the dialect; spoken output will sound Mandarin.
+  if (bcp47 === "nan" || bcp47.startsWith("nan-")) return "zh";
+  if (bcp47 === "yue" || bcp47.startsWith("yue-")) return "zh";
   if (bcp47.startsWith("zh")) return "zh";
   if (bcp47.startsWith("ms")) return "en"; // MeloTTS lacks Malay; English fallback
   if (bcp47.startsWith("ta")) return "en"; // MeloTTS lacks Tamil; English fallback

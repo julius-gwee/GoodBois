@@ -11,6 +11,7 @@ import ReceiptState from "./ReceiptState";
 import Wordmark from "./Wordmark";
 import { mockTurnResponses } from "@/lib/mock-turn-fixtures";
 import type { TurnResponse } from "@/types/goodbois";
+import { LanguageProvider, useUIStrings } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 
 const KAWAN_API_BASE =
@@ -200,7 +201,7 @@ const PULSE_INTERVAL_MS = 500;
 // Mock-mode walks this sequence on successive turns. Real-mode is driven by
 // the backend's TurnResponse.state and ignores these.
 const MOCK_TURN_SEQUENCE = ["followup_listening", "done_signpost"] as const;
-const DEFAULT_LANGUAGE = "zh-Hans";
+const DEFAULT_LANGUAGE = "en";
 
 export default function KioskShell() {
   const [state, setState] = useState<KioskState>("idle");
@@ -213,6 +214,12 @@ export default function KioskShell() {
   const [pulseToken, setPulseToken] = useState(0);
 
   const sessionIdRef = useRef<string | null>(null);
+  // Locked once on the first turn that produces a usable srcLang from the
+  // backend. State (not ref) because it drives <LanguageProvider> — flipping
+  // it triggers a rerender that swaps every chrome string into the detected
+  // language. The orchestrator already pins session.srcLang server-side; this
+  // mirror also covers browser-TTS fallback when audioUrl is absent.
+  const [sessionLang, setSessionLang] = useState<string | null>(null);
   const turnIndexRef = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,6 +248,7 @@ export default function KioskShell() {
     setReceiptUrl(null);
     setPulseToken(0);
     sessionIdRef.current = null;
+    setSessionLang(null);
     turnIndexRef.current = 0;
   }, [clearAllTimers]);
 
@@ -347,6 +355,18 @@ export default function KioskShell() {
 
       sessionIdRef.current = turnResponse.sessionId;
 
+      // Lock the session language on the first turn that surfaces one. The
+      // backend already pins this; mirroring it into state flips the
+      // <LanguageProvider> out of cycling mode so chat tags, button copy,
+      // and the browser-TTS fallback all settle on the detected language.
+      // Functional updater keeps the effect dep-free of `sessionLang`.
+      const turnLang = turnResponse.transcript?.srcLang;
+      let effectiveLang = DEFAULT_LANGUAGE;
+      if (turnLang) {
+        setSessionLang((prev) => prev ?? turnLang);
+        effectiveLang = turnLang;
+      }
+
       const stamp = Date.now();
       const userText = turnResponse.transcript?.english;
 
@@ -356,21 +376,21 @@ export default function KioskShell() {
           id: `user-${stamp}`,
           role: "user",
           text: userText,
-          language: turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
+          language: effectiveLang,
         });
       }
       newEntries.push({
         id: `agent-${stamp}`,
         role: "agent",
         text: turnResponse.kioskMessage,
-        language: turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
+        language: effectiveLang,
       });
 
       setMessages((prev) => [...prev, ...newEntries]);
       setTranscript(null);
 
       // Play kiosk audio (backend TTS) if present; otherwise fall back to
-      // browser speechSynthesis using the source language.
+      // browser speechSynthesis using the session source language.
       const audioToPlay = turnResponse.audioUrl;
       if (audioToPlay) {
         try {
@@ -387,10 +407,7 @@ export default function KioskShell() {
           // No-op.
         }
       } else {
-        speakViaBrowser(
-          turnResponse.kioskMessage,
-          turnResponse.transcript?.srcLang ?? DEFAULT_LANGUAGE,
-        );
+        speakViaBrowser(turnResponse.kioskMessage, effectiveLang);
       }
 
       if (turnResponse.state === "followup") {
@@ -475,6 +492,7 @@ export default function KioskShell() {
   }
 
   return (
+    <LanguageProvider sessionLang={sessionLang}>
     <main className="relative flex min-h-screen flex-col bg-soft-cream">
       <header className="flex items-center justify-between px-[8vw] py-[5vh]">
         <Wordmark />
@@ -498,8 +516,7 @@ export default function KioskShell() {
         )}
 
         {showBlob && (
-          <VoiceAgentBlob
-            ariaLabel="Tap to speak to Kawan"
+          <LocalizedBlob
             onActivate={handleBlobActivate}
             mode={blobMode}
             position={isChatLayout ? "bottom" : "center"}
@@ -516,5 +533,19 @@ export default function KioskShell() {
         )}
       </div>
     </main>
+    </LanguageProvider>
   );
+}
+
+// Wrapper so VoiceAgentBlob's aria-label localises with the active session
+// language. VoiceAgentBlob itself takes a plain string prop — keeping that
+// shape avoids spreading i18n knowledge into a presentational atom.
+type LocalizedBlobProps = Omit<
+  React.ComponentProps<typeof VoiceAgentBlob>,
+  "ariaLabel"
+>;
+
+function LocalizedBlob(props: LocalizedBlobProps) {
+  const t = useUIStrings();
+  return <VoiceAgentBlob ariaLabel={t.tapToSpeak} {...props} />;
 }
