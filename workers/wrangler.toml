@@ -33,6 +33,7 @@ id = "fee02d81231040c2aa5759f550faf884"
 binding = "DB"
 database_name = "goodbois"
 database_id = "e69b62ec-e418-42c3-a2a6-0c0a87a6e9a6"
+migrations_dir = "migrations"
 
 # [[r2_buckets]]
 # binding = "RECEIPTS"

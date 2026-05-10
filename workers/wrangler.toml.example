@@ -1,4 +1,4 @@
-name = "goodbois-worker"
+name = "kawan-workers"
 main = "src/index.ts"
 compatibility_date = "2026-05-09"
 
@@ -24,7 +24,7 @@ binding = "AI"
 
 [vars]
 EXPORT_TOKEN = "dev"
-WORKER_URL = "http://127.0.0.1:8787"
+WORKER_URL = "https://kawan-workers.e1406504.workers.dev"
 ONEMAP_API_BASE_URL = "https://www.onemap.gov.sg"
 # Wheelchair mode tries OneMap BFA first, then falls back to public walking.
 ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
