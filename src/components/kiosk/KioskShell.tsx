@@ -47,6 +47,65 @@ async function fetchTurn(payload: {
 
 type CapturedAudio = { base64: string; mimeType: string };
 
+type SpeechRecognitionAlternative = { transcript: string };
+type SpeechRecognitionResult = { 0: SpeechRecognitionAlternative };
+type SpeechRecognitionResultList = {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+};
+type SpeechRecognitionEvent = { results: SpeechRecognitionResultList };
+type SpeechRecognitionInstance = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  addEventListener: (
+    type: "result" | "error" | "end",
+    listener: (event: SpeechRecognitionEvent) => void,
+  ) => void;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
+
+function startLiveTranscription(
+  onInterim: (text: string) => void,
+): SpeechRecognitionInstance | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  if (!Ctor) return null;
+
+  let recognition: SpeechRecognitionInstance;
+  try {
+    recognition = new Ctor();
+  } catch {
+    return null;
+  }
+
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.addEventListener("result", (event) => {
+    let text = "";
+    for (let i = 0; i < event.results.length; i++) {
+      text += event.results[i][0].transcript;
+    }
+    onInterim(text);
+  });
+
+  try {
+    recognition.start();
+  } catch {
+    return null;
+  }
+
+  return recognition;
+}
+
 function speakViaBrowser(text: string, language: string): boolean {
   if (typeof window === "undefined" || !window.speechSynthesis) return false;
   try {
@@ -137,7 +196,6 @@ const IDLE_RESET_MS = 30_000;
 const SIMULATED_LISTENING_MS = 3_000;
 const SIMULATED_THINKING_MS = 1_500;
 const PULSE_INTERVAL_MS = 500;
-const TYPE_INTERVAL_MS = 80;
 
 // Mock-mode walks this sequence on successive turns. Real-mode is driven by
 // the backend's TurnResponse.state and ignores these.
@@ -158,7 +216,6 @@ export default function KioskShell() {
   const turnIndexRef = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Outstanding captureAudio promise. The listening effect kicks off the
   // recording; the thinking effect awaits it before posting /turn so the
@@ -167,13 +224,12 @@ export default function KioskShell() {
     null,
   );
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   const clearAllTimers = useCallback(() => {
     if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
-    if (typeTimerRef.current) clearInterval(typeTimerRef.current);
     if (pulseTimerRef.current) clearInterval(pulseTimerRef.current);
     stateTimerRef.current = null;
-    typeTimerRef.current = null;
     pulseTimerRef.current = null;
   }, []);
 
@@ -198,17 +254,11 @@ export default function KioskShell() {
     };
   }, [state, messages.length, pulseToken, resetToIdle]);
 
-  // Listening: pulse blob, type-out the mock fixture transcript while we
-  // capture from the mic in parallel, then advance to thinking.
+  // Listening: pulse blob, run live browser STT for on-screen text, capture
+  // audio in parallel for the backend, then advance to thinking. Live text
+  // is display-only — the authoritative transcript comes back from /turn.
   useEffect(() => {
     if (state !== "listening") return;
-
-    const fixtureKey =
-      MOCK_TURN_SEQUENCE[
-        Math.min(turnIndexRef.current, MOCK_TURN_SEQUENCE.length - 1)
-      ];
-    const fixture = mockTurnResponses[fixtureKey];
-    const targetTranscript = fixture?.transcript ?? null;
 
     pulseTimerRef.current = setInterval(() => {
       setPulseToken((t) => t + 1);
@@ -222,20 +272,12 @@ export default function KioskShell() {
       audioCapturePromiseRef.current = captureAudio(SIMULATED_LISTENING_MS);
     }
 
-    if (targetTranscript) {
-      let charIdx = 0;
-      typeTimerRef.current = setInterval(() => {
-        charIdx++;
-        if (charIdx > targetTranscript.english.length) {
-          if (typeTimerRef.current) clearInterval(typeTimerRef.current);
-          return;
-        }
-        setTranscript({
-          english: targetTranscript.english.slice(0, charIdx),
-          srcLang: targetTranscript.srcLang,
-        });
-      }, TYPE_INTERVAL_MS);
-    }
+    // Live interim transcript via the Web Speech API. Unsupported browsers
+    // (Safari/Firefox) leave the panel blank until the backend transcript
+    // arrives in the chat state.
+    recognitionRef.current = startLiveTranscription((text) => {
+      setTranscript({ english: text, srcLang: "" });
+    });
 
     stateTimerRef.current = setTimeout(() => {
       setState("thinking");
@@ -243,8 +285,15 @@ export default function KioskShell() {
 
     return () => {
       if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
-      if (typeTimerRef.current) clearInterval(typeTimerRef.current);
       if (pulseTimerRef.current) clearInterval(pulseTimerRef.current);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          // No-op.
+        }
+        recognitionRef.current = null;
+      }
     };
   }, [state]);
 
