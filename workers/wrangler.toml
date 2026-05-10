@@ -27,7 +27,7 @@ ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
 
 [[kv_namespaces]]
 binding = "SESSION_KV"
-id = "97e6a6347e584c5f80870af45dcb3673"
+id = "fee02d81231040c2aa5759f550faf884"
 
 [[d1_databases]]
 binding = "DB"
