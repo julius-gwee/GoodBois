@@ -58,6 +58,34 @@ export const mockLegalAidReceipt: Receipt = {
   generatedAt: "2026-05-09T10:01:00+08:00",
 };
 
+export const mockHazardAgencyContact: AgencyContact = {
+  key: "town-council-east-coast",
+  name: "East Coast Town Council",
+  hotline: "6444-0000",
+  address: "55 Marine Terrace, #01-100",
+  category: "town_council",
+  openingHours: "Mon–Fri 8.30am–5pm, Sat 8.30am–1pm",
+  multilingualBlurb: {
+    en: "Estate maintenance — lighting, lifts, cleaning, and common-area repairs.",
+    "zh-Hans": "组屋区维护——照明、电梯、清洁与公共区域维修。",
+  },
+  active: true,
+  source: "seed",
+  updatedAt: "2026-05-09T00:00:00+08:00",
+};
+
+export const mockHazardReceipt: Receipt = {
+  id: "GBR-20260509-002",
+  sessionId: "demo-session-002",
+  language: "en",
+  body: "Hazard report — broken void-deck light\nFiled with East Coast Town Council. Usually acted on within 3 working days.",
+  thingsToBring: [],
+  caseSummary: "Resident reports the void-deck light at their block is out; trip/fall risk after dark.",
+  signpostedAgencyKey: "town-council-east-coast",
+  hazardReferenceId: "ECTC-20260509-014",
+  generatedAt: "2026-05-09T10:01:00+08:00",
+};
+
 export const mockTurnResponses: Record<string, TurnResponse> = {
   followup_listening: {
     sessionId: "demo-session-001",
@@ -92,7 +120,8 @@ export const mockTurnResponses: Record<string, TurnResponse> = {
   },
   // Single-shot demo: resident asks (in Mandarin) for a lawyer because their
   // spouse is filing for divorce; the kiosk signposts the Legal Aid Bureau.
-  // Gated behind SHOW_LAWYER_DEMO in KioskShell (defaults off).
+  // Active by default in mock mode (see SHOW_LAWYER_DEMO in KioskShell; set
+  // NEXT_PUBLIC_HIDE_LAWYER_DEMO=1 to use the eye-check / hazard sequence).
   done_lawyer: {
     sessionId: "demo-session-003",
     state: "done",
