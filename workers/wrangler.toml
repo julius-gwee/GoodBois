@@ -32,7 +32,7 @@ id = "fee02d81231040c2aa5759f550faf884"
 [[d1_databases]]
 binding = "DB"
 database_name = "goodbois"
-database_id = "1e13f482-3d39-4599-9c48-e166d3360ed6"
+database_id = "e69b62ec-e418-42c3-a2a6-0c0a87a6e9a6"
 
 # [[r2_buckets]]
 # binding = "RECEIPTS"
