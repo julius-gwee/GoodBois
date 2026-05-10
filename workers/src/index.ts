@@ -52,12 +52,17 @@ const RECEIPT_ID_RE = /^GBR-\d{8}-\d{3}$/;
 
 const app = new Hono<{ Bindings: WorkerBindings }>();
 
+// Wide-open CORS: any origin, any method, any request header (reflected back
+// from the preflight). The kiosk worker exposes only public, non-credentialed
+// endpoints, so there's nothing a same-origin policy would protect here.
 app.use(
   "*",
   cors({
     origin: "*",
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["content-type"],
+    allowMethods: ["GET", "HEAD", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowHeaders: [], // empty => Hono echoes Access-Control-Request-Headers back
+    exposeHeaders: ["*"],
+    maxAge: 86400,
   }),
 );
 
