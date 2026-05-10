@@ -243,7 +243,13 @@ function newSessionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `kiosk-${crypto.randomUUID()}`;
   }
-  return `kiosk-${Date.now()}-fallback`;
+  if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `kiosk-${hex}`;
+  }
+  throw new Error("Secure session ID generation is unavailable in this runtime.");
 }
 
 function capturePriorResult(
