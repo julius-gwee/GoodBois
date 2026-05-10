@@ -122,12 +122,27 @@ function speakViaBrowser(text: string, language: string): boolean {
   }
 }
 
-async function captureAudio(timeoutMs: number): Promise<CapturedAudio | null> {
+type CaptureHandle = {
+  audio: Promise<CapturedAudio | null>;
+  stop: () => void;
+};
+
+// Voice-activity-detection thresholds. RMS is computed on a -1..1 normalised
+// time-domain buffer, so 0.015 ≈ a quiet room with someone breathing, and
+// regular speech sits comfortably above 0.05. The "no speech yet" timeout
+// prevents the mic from hanging open forever if the user never talks; the
+// hard cap is a safety net against runaway recordings.
+const VAD_RMS_THRESHOLD = 0.015;
+const VAD_TRAILING_SILENCE_MS = 1_500;
+const VAD_NO_SPEECH_TIMEOUT_MS = 8_000;
+const VAD_MAX_RECORDING_MS = 30_000;
+
+async function captureAudioWithVAD(): Promise<CaptureHandle | null> {
   if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     return null;
   }
 
-  let stream: MediaStream | null = null;
+  let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
@@ -140,22 +155,68 @@ async function captureAudio(timeoutMs: number): Promise<CapturedAudio | null> {
       ? "audio/webm;codecs=opus"
       : "audio/webm";
 
-  return new Promise<CapturedAudio | null>((resolve) => {
-    if (!stream) return resolve(null);
-    let recorder: MediaRecorder;
-    try {
-      recorder = new MediaRecorder(stream, { mimeType });
-    } catch {
-      stream.getTracks().forEach((t) => t.stop());
-      return resolve(null);
-    }
+  let recorder: MediaRecorder;
+  try {
+    recorder = new MediaRecorder(stream, { mimeType });
+  } catch {
+    stream.getTracks().forEach((t) => t.stop());
+    return null;
+  }
 
-    const chunks: BlobPart[] = [];
-    let settled = false;
+  // Wire an analyser off the same stream so we can read mic level without
+  // disturbing the recorder. If AudioContext is unavailable we fall back to
+  // a hard cap below.
+  let audioCtx: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  let source: MediaStreamAudioSourceNode | null = null;
+  try {
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (Ctor) {
+      audioCtx = new Ctor();
+      source = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+    }
+  } catch {
+    audioCtx = null;
+    analyser = null;
+    source = null;
+  }
+
+  const chunks: BlobPart[] = [];
+  let settled = false;
+  let stopRequested = false;
+  let rafId: number | null = null;
+  let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const cleanup = () => {
+    stream.getTracks().forEach((t) => t.stop());
+    try {
+      source?.disconnect();
+      analyser?.disconnect();
+      audioCtx?.close();
+    } catch {
+      // No-op.
+    }
+    if (rafId !== null && typeof cancelAnimationFrame !== "undefined") {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    if (fallbackTimer) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+  };
+
+  const audio = new Promise<CapturedAudio | null>((resolve) => {
     const finish = (value: CapturedAudio | null) => {
       if (settled) return;
       settled = true;
-      stream?.getTracks().forEach((t) => t.stop());
+      cleanup();
       resolve(value);
     };
 
@@ -177,24 +238,79 @@ async function captureAudio(timeoutMs: number): Promise<CapturedAudio | null> {
       }
     });
     recorder.addEventListener("error", () => finish(null));
-
-    recorder.start();
-    setTimeout(() => {
-      if (recorder.state !== "inactive") {
-        try {
-          recorder.stop();
-        } catch {
-          finish(null);
-        }
-      }
-    }, timeoutMs);
   });
+
+  const stop = () => {
+    if (stopRequested) return;
+    stopRequested = true;
+    if (recorder.state !== "inactive") {
+      try {
+        recorder.stop();
+      } catch {
+        // Recorder already stopped — the resolve path will settle the promise.
+      }
+    }
+  };
+
+  recorder.start();
+
+  if (analyser) {
+    const buffer = new Uint8Array(analyser.fftSize);
+    let speechStarted = false;
+    let lastSpeechAt = performance.now();
+    const startedAt = performance.now();
+
+    const tick = () => {
+      if (stopRequested) return;
+      const now = performance.now();
+      const elapsed = now - startedAt;
+
+      if (elapsed > VAD_MAX_RECORDING_MS) {
+        stop();
+        return;
+      }
+
+      analyser!.getByteTimeDomainData(buffer);
+      let sumSquares = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const v = (buffer[i] - 128) / 128;
+        sumSquares += v * v;
+      }
+      const rms = Math.sqrt(sumSquares / buffer.length);
+
+      if (rms > VAD_RMS_THRESHOLD) {
+        speechStarted = true;
+        lastSpeechAt = now;
+      } else if (
+        speechStarted &&
+        now - lastSpeechAt > VAD_TRAILING_SILENCE_MS
+      ) {
+        stop();
+        return;
+      } else if (!speechStarted && elapsed > VAD_NO_SPEECH_TIMEOUT_MS) {
+        stop();
+        return;
+      }
+
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+  } else {
+    // No analyser available — fall back to the hard cap so the mic doesn't
+    // run forever.
+    fallbackTimer = setTimeout(stop, VAD_MAX_RECORDING_MS);
+  }
+
+  return { audio, stop };
 }
 
 type KioskState = "idle" | "listening" | "thinking" | "chat" | "receipt";
 
 const IDLE_RESET_MS = 30_000;
-const SIMULATED_LISTENING_MS = 3_000;
+// Mock-mode only fallback: real-mode listening is ended by VAD or the user
+// pressing Stop, not a fixed timer.
+const MOCK_LISTENING_MS = 6_000;
 const SIMULATED_THINKING_MS = 1_500;
 const PULSE_INTERVAL_MS = 500;
 
@@ -224,12 +340,11 @@ export default function KioskShell() {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pulseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Outstanding captureAudio promise. The listening effect kicks off the
-  // recording; the thinking effect awaits it before posting /turn so the
-  // request always carries audio rather than racing the recorder.
-  const audioCapturePromiseRef = useRef<Promise<CapturedAudio | null> | null>(
-    null,
-  );
+  // Active mic capture handle. The listening effect opens the mic and runs
+  // VAD; the thinking effect awaits handle.audio before posting /turn so the
+  // request always carries the full utterance. handle.stop() lets the manual
+  // Stop button or unmount cleanup flush the recorder early.
+  const captureHandleRef = useRef<CaptureHandle | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
@@ -242,6 +357,10 @@ export default function KioskShell() {
 
   const resetToIdle = useCallback(() => {
     clearAllTimers();
+    if (captureHandleRef.current) {
+      captureHandleRef.current.stop();
+      captureHandleRef.current = null;
+    }
     setState("idle");
     setMessages([]);
     setTranscript(null);
@@ -263,10 +382,13 @@ export default function KioskShell() {
   }, [state, messages.length, pulseToken, resetToIdle]);
 
   // Listening: pulse blob, run live browser STT for on-screen text, capture
-  // audio in parallel for the backend, then advance to thinking. Live text
-  // is display-only — the authoritative transcript comes back from /turn.
+  // audio in parallel for the backend, then advance to thinking when VAD
+  // detects end-of-speech (or the user taps Stop). Live text is display-only
+  // — the authoritative transcript comes back from /turn.
   useEffect(() => {
     if (state !== "listening") return;
+
+    let cancelled = false;
 
     pulseTimerRef.current = setInterval(() => {
       setPulseToken((t) => t + 1);
@@ -277,7 +399,28 @@ export default function KioskShell() {
       // detects the language and returns the English transcript — letting the
       // browser do its own speech-recognition would skip language detection
       // and lock us to the kiosk's default lang.
-      audioCapturePromiseRef.current = captureAudio(SIMULATED_LISTENING_MS);
+      captureAudioWithVAD().then((handle) => {
+        if (cancelled || !handle) {
+          // Either the listening effect tore down before the mic opened, or
+          // permission was denied. The thinking effect handles the null-audio
+          // case by resetting to idle.
+          handle?.stop();
+          return;
+        }
+        captureHandleRef.current = handle;
+        // Advance to thinking the moment VAD (or a manual stop) flushes the
+        // recorder. The thinking effect re-awaits the same promise so the
+        // POST /turn body always has the full utterance.
+        handle.audio.then(() => {
+          if (cancelled) return;
+          setState((prev) => (prev === "listening" ? "thinking" : prev));
+        });
+      });
+    } else {
+      // Mock mode — no mic, just simulate a listening window so the UX flows.
+      stateTimerRef.current = setTimeout(() => {
+        setState("thinking");
+      }, MOCK_LISTENING_MS);
     }
 
     // Live interim transcript via the Web Speech API. Unsupported browsers
@@ -287,11 +430,8 @@ export default function KioskShell() {
       setTranscript({ english: text, srcLang: "" });
     });
 
-    stateTimerRef.current = setTimeout(() => {
-      setState("thinking");
-    }, SIMULATED_LISTENING_MS);
-
     return () => {
+      cancelled = true;
       if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
       if (pulseTimerRef.current) clearInterval(pulseTimerRef.current);
       if (recognitionRef.current) {
@@ -319,13 +459,16 @@ export default function KioskShell() {
         ];
       const mockFixture = mockTurnResponses[fixtureKey];
 
-      // Await the audio capture started in the listening effect. The recorder
-      // stops itself at SIMULATED_LISTENING_MS, then this promise resolves
-      // with the encoded audio.
-      const audioPromise = audioCapturePromiseRef.current;
-      audioCapturePromiseRef.current = null;
-      const audioResult: CapturedAudio | null = audioPromise
-        ? await audioPromise
+      // Await the audio capture started in the listening effect. VAD (or the
+      // user pressing Stop) flushes the recorder, then this promise resolves
+      // with the encoded audio. We also call stop() defensively in case we're
+      // entering thinking via some other path (e.g. timer), so we don't leave
+      // the mic running.
+      const handle = captureHandleRef.current;
+      captureHandleRef.current = null;
+      handle?.stop();
+      const audioResult: CapturedAudio | null = handle
+        ? await handle.audio
         : null;
 
       let response: TurnResponse | null = null;
@@ -445,6 +588,10 @@ export default function KioskShell() {
         audioPlayerRef.current.pause();
         audioPlayerRef.current = null;
       }
+      if (captureHandleRef.current) {
+        captureHandleRef.current.stop();
+        captureHandleRef.current = null;
+      }
       if (typeof window !== "undefined" && window.speechSynthesis) {
         try {
           window.speechSynthesis.cancel();
@@ -462,6 +609,9 @@ export default function KioskShell() {
   };
 
   const handleStop = () => {
+    // Flush the recorder so its audio promise resolves immediately. The VAD
+    // tick would otherwise keep the mic open until trailing silence is seen.
+    captureHandleRef.current?.stop();
     setState("thinking");
   };
 
