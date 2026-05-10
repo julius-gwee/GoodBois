@@ -6,7 +6,8 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "migrate:remote": "wrangler d1 migrations apply goodbois --remote",
+    "deploy": "wrangler d1 migrations apply goodbois --remote && wrangler deploy",
     "types": "wrangler types",
     "db:gen-seed": "tsx scripts/generate-seed-sql.ts",
     "test": "vitest run"

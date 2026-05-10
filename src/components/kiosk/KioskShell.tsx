@@ -21,6 +21,17 @@ const KAWAN_API_BASE =
 
 const USE_REAL_TURN = Boolean(KAWAN_API_BASE);
 
+// Defaults to false. While false, mock mode runs the single-shot "divorce
+// lawyer → Legal Aid Bureau" demo turn (in Mandarin, with a longer fake
+// thinking pause). Set it true (NEXT_PUBLIC_HIDE_LAWYER_DEMO="1"/"true") to
+// fall back to the default eye-check / hazard sequence instead.
+const HIDE_LAWYER_DEMO =
+  typeof process !== "undefined" &&
+  ["1", "true"].includes(
+    (process.env.NEXT_PUBLIC_HIDE_LAWYER_DEMO ?? "").toLowerCase(),
+  );
+const SHOW_LAWYER_DEMO = !HIDE_LAWYER_DEMO;
+
 async function fetchTurn(payload: {
   sessionId?: string;
   kioskId: string;
@@ -312,11 +323,21 @@ const IDLE_RESET_MS = 30_000;
 // pressing Stop, not a fixed timer.
 const MOCK_LISTENING_MS = 6_000;
 const SIMULATED_THINKING_MS = 1_500;
+// Mock-mode only: extra "thinking" pause after the user's utterance so the
+// canned demo turn doesn't pop back instantly. Real-mode uses SIMULATED_THINKING_MS.
+const MOCK_THINKING_MS = 5_000;
 const PULSE_INTERVAL_MS = 500;
 
 // Mock-mode walks this sequence on successive turns. Real-mode is driven by
 // the backend's TurnResponse.state and ignores these.
-const MOCK_TURN_SEQUENCE = ["followup_listening", "done_signpost"] as const;
+const MOCK_TURN_SEQUENCE = SHOW_LAWYER_DEMO
+  ? (["done_lawyer"] as const)
+  : (["followup_listening", "done_signpost"] as const);
+// Fake "thinking" pause after the user's utterance in mock mode. The lawyer
+// demo uses a longer 5s beat; the default sequence keeps the snappy pause.
+const MOCK_THINKING_DELAY_MS = SHOW_LAWYER_DEMO
+  ? MOCK_THINKING_MS
+  : SIMULATED_THINKING_MS;
 const DEFAULT_LANGUAGE = "en";
 
 export default function KioskShell() {
@@ -487,7 +508,11 @@ export default function KioskShell() {
       }
 
       // Wait at least the simulated thinking time so the UI doesn't flash.
-      await new Promise((r) => setTimeout(r, SIMULATED_THINKING_MS));
+      // Mock mode can stretch this (e.g. the lawyer demo's 5s beat).
+      const thinkingDelayMs = USE_REAL_TURN
+        ? SIMULATED_THINKING_MS
+        : MOCK_THINKING_DELAY_MS;
+      await new Promise((r) => setTimeout(r, thinkingDelayMs));
       if (cancelled) return;
 
       const turnResponse = response ?? mockFixture;
