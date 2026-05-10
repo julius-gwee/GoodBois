@@ -4,6 +4,7 @@
 //   GET  /health
 //   POST /turn               — six-stage orchestrator (spec §2)
 //   GET  /receipts/:id       — bilingual HTML render
+//   GET  /route              — kiosk → agency walking route (OneMap, by agencyKey)
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -18,6 +19,21 @@ import { orchestrate, type OrchestratorEnv } from "./orchestrator";
 import { makeHazardMailer } from "./integrations/email";
 import { findMapResources } from "./tools/findMapResources";
 import { findRoutes, type WorkerEnv } from "./tools/oneMapRouting";
+import { workerKioskLocation } from "./fixtures/map-demo";
+
+function haversineMeters(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
+}
 
 export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
   DB?: D1Database;
@@ -97,6 +113,70 @@ app.post("/routes", async (c) => {
   const routes = await findRoutes(resource, body.mode, c.env);
 
   return c.json({ routes });
+});
+
+// Kiosk "show me the way there" — given a signposted agencyKey, return a single
+// walking route from the kiosk to that agency's coordinates. Reuses the OneMap
+// adapter via the agency's mirrored map Resource when one exists; otherwise
+// (or if OneMap is unreachable) returns a straight kiosk→agency line so the
+// kiosk map never renders blank.
+app.get("/route", async (c) => {
+  const agencyKey = c.req.query("agencyKey");
+  if (!agencyKey) {
+    return c.json(
+      { error: { code: "MISSING_AGENCY_KEY", message: "agencyKey is required.", fallbackAvailable: false } },
+      400,
+    );
+  }
+
+  const repos = await getRepos(c.env);
+  const agency = await repos.agencies.getByKey(agencyKey);
+  if (!agency || !agency.active) {
+    return c.json(
+      { error: { code: "AGENCY_NOT_FOUND", message: "Agency not found.", fallbackAvailable: false } },
+      404,
+    );
+  }
+  if (agency.latitude == null || agency.longitude == null) {
+    return c.json(
+      { error: { code: "AGENCY_NO_COORDS", message: "Agency has no coordinates for routing.", fallbackAvailable: false } },
+      422,
+    );
+  }
+
+  const origin = { latitude: workerKioskLocation.latitude, longitude: workerKioskLocation.longitude };
+  const destination = { latitude: agency.latitude, longitude: agency.longitude };
+  const requestedMode = (c.req.query("mode") as RouteMode | undefined) ?? "walk";
+
+  let polyline = [origin, destination];
+  let distanceMeters = haversineMeters(origin, destination);
+  let durationMinutes: number | null = null;
+  let provider = "Direct line";
+
+  const resource = findMapResources().find((r) => r.linkedAgencyKey === agencyKey);
+  if (resource) {
+    const routes = await findRoutes(resource, requestedMode, c.env);
+    const best = routes.find((r) => r.isRecommended) ?? routes[0];
+    if (best && best.destinationResourceId === resource.id && best.polyline.length >= 2) {
+      polyline = best.polyline.map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
+      distanceMeters = best.distanceMeters;
+      durationMinutes = best.durationMinutes;
+      provider = best.providerLabel;
+    }
+  }
+
+  return c.json({
+    agencyKey: agency.key,
+    agencyName: agency.name,
+    address: agency.address ?? null,
+    walkingDirectionsHint: agency.walkingDirectionsHint ?? null,
+    origin,
+    destination,
+    polyline,
+    distanceMeters,
+    durationMinutes,
+    provider,
+  });
 });
 
 app.post("/turn", async (c) => {

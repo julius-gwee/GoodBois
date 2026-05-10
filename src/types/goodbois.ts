@@ -109,6 +109,21 @@ export type TurnResponse = {
   error?: { code: string; message: string; fallbackAvailable: boolean };
 };
 
+// Response of `GET /route?agencyKey=` — a single kiosk→agency walking route,
+// consumed by the kiosk's RouteState/RouteMapCanvas embed.
+export type KioskRouteResponse = {
+  agencyKey: string;
+  agencyName: string;
+  address: string | null;
+  walkingDirectionsHint: string | null;
+  origin: { latitude: number; longitude: number };
+  destination: { latitude: number; longitude: number };
+  polyline: Array<{ latitude: number; longitude: number }>;
+  distanceMeters: number;
+  durationMinutes: number | null;
+  provider: string;
+};
+
 export type AgencyCategory =
   | "housing"
   | "transport"

@@ -8,9 +8,10 @@ import ListeningState from "./ListeningState";
 import ThinkingState from "./ThinkingState";
 import ChatState, { type ChatEntry } from "./ChatState";
 import ReceiptState from "./ReceiptState";
+import RouteState from "./RouteState";
 import Wordmark from "./Wordmark";
 import { mockTurnResponses } from "@/lib/mock-turn-fixtures";
-import type { TurnResponse } from "@/types/goodbois";
+import type { AgencyContact, ToolInvocationSummary, TurnResponse } from "@/types/goodbois";
 import { LanguageProvider, useUIStrings } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 
@@ -305,7 +306,7 @@ async function captureAudioWithVAD(): Promise<CaptureHandle | null> {
   return { audio, stop };
 }
 
-type KioskState = "idle" | "listening" | "thinking" | "chat" | "receipt";
+type KioskState = "idle" | "listening" | "thinking" | "chat" | "receipt" | "route";
 
 const IDLE_RESET_MS = 30_000;
 // Mock-mode only fallback: real-mode listening is ended by VAD or the user
@@ -327,6 +328,11 @@ export default function KioskShell() {
     srcLang: string;
   } | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  // Set when a turn's tool calls include a successful `signpost` whose agency
+  // has coordinates — gates the "View directions" affordance and the map embed.
+  const [signpostedAgency, setSignpostedAgency] = useState<AgencyContact | null>(
+    null,
+  );
   const [pulseToken, setPulseToken] = useState(0);
 
   const sessionIdRef = useRef<string | null>(null);
@@ -365,6 +371,7 @@ export default function KioskShell() {
     setMessages([]);
     setTranscript(null);
     setReceiptUrl(null);
+    setSignpostedAgency(null);
     setPulseToken(0);
     sessionIdRef.current = null;
     setSessionLang(null);
@@ -532,6 +539,21 @@ export default function KioskShell() {
       setMessages((prev) => [...prev, ...newEntries]);
       setTranscript(null);
 
+      // Surface a "View directions" affordance when the turn signposted an
+      // agency we can put on a map (one with coordinates).
+      const signpostCall = turnResponse.toolCalls?.find(
+        (tc): tc is Extract<ToolInvocationSummary, { name: "signpost"; ok: true }> =>
+          tc.name === "signpost" && tc.ok === true,
+      );
+      const signpostAgency = signpostCall?.data.agency ?? null;
+      setSignpostedAgency(
+        signpostAgency &&
+          signpostAgency.latitude != null &&
+          signpostAgency.longitude != null
+          ? signpostAgency
+          : null,
+      );
+
       // Play kiosk audio (backend TTS) if present; otherwise fall back to
       // browser speechSynthesis using the session source language.
       const audioToPlay = turnResponse.audioUrl;
@@ -629,6 +651,10 @@ export default function KioskShell() {
     if (receiptUrl) setState("receipt");
   };
 
+  const handleViewDirections = () => {
+    if (signpostedAgency) setState("route");
+  };
+
   const blobMode: "idle" | "listening" | "thinking" =
     state === "listening"
       ? "listening"
@@ -636,8 +662,16 @@ export default function KioskShell() {
         ? "thinking"
         : "idle";
 
-  const showBlob = state !== "receipt";
+  const showBlob = state !== "receipt" && state !== "route";
   const isChatLayout = state === "chat";
+
+  if (state === "route" && signpostedAgency) {
+    return (
+      <LanguageProvider sessionLang={sessionLang}>
+        <RouteState agency={signpostedAgency} onBack={() => setState("chat")} />
+      </LanguageProvider>
+    );
+  }
 
   if (state === "receipt" && receiptUrl) {
     return <ReceiptState receiptUrl={receiptUrl} onBack={resetToIdle} />;
@@ -663,6 +697,7 @@ export default function KioskShell() {
           <ChatState
             messages={messages}
             onViewReceipt={receiptUrl ? handleViewReceipt : undefined}
+            onViewDirections={signpostedAgency ? handleViewDirections : undefined}
             onReset={resetToIdle}
           />
         )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Eye, X } from "lucide-react";
+import { Eye, MapPin, X } from "lucide-react";
 import ChatMessage from "@/components/atoms/ChatMessage";
 import { useUILang, useUIStrings } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ export type ChatEntry = {
 type ChatStateProps = {
   messages: ChatEntry[];
   onViewReceipt?: () => void; // present only when a receipt is ready
+  onViewDirections?: () => void; // present only when a signposted agency has coords
   onReset: () => void;
   className?: string;
 };
@@ -23,6 +24,7 @@ type ChatStateProps = {
 export default function ChatState({
   messages,
   onViewReceipt,
+  onViewDirections,
   onReset,
   className,
 }: ChatStateProps) {
@@ -71,6 +73,21 @@ export default function ChatState({
           <X className="h-4 w-4" aria-hidden="true" />
           <span>{t.done}</span>
         </button>
+        {onViewDirections && (
+          <button
+            type="button"
+            onClick={onViewDirections}
+            lang={lang}
+            className={cn(
+              "flex items-center gap-2 rounded-full border border-forest-sage/40 bg-soft-cream/80 px-5 py-3",
+              "text-base font-semibold text-forest-sage hover:bg-deep-linen transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest-sage/40 focus-visible:ring-offset-2 focus-visible:ring-offset-soft-cream"
+            )}
+          >
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            <span>{t.viewDirections}</span>
+          </button>
+        )}
         {onViewReceipt && (
           <button
             type="button"

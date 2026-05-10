@@ -14,6 +14,9 @@ export type UIStringKey =
   | "thinking"
   | "done"
   | "viewReceipt"
+  | "viewDirections"
+  | "back"
+  | "yourLocation"
   | "cannotSpeak"
   | "typeInstead"
   | "accessibilityOptions"
@@ -29,6 +32,9 @@ export const UI_STRINGS: Record<SupportedLanguage, UIStrings> = {
     thinking: "Thinking",
     done: "Done",
     viewReceipt: "View receipt",
+    viewDirections: "View directions",
+    back: "Back",
+    yourLocation: "Your location",
     cannotSpeak: "I can't speak right now",
     typeInstead: "Type instead",
     accessibilityOptions: "Accessibility options",
@@ -41,6 +47,9 @@ export const UI_STRINGS: Record<SupportedLanguage, UIStrings> = {
     thinking: "正在思考",
     done: "完成",
     viewReceipt: "查看收据",
+    viewDirections: "查看路线",
+    back: "返回",
+    yourLocation: "你的位置",
     cannotSpeak: "我现在不能说话",
     typeInstead: "改用打字",
     accessibilityOptions: "无障碍选项",
@@ -53,6 +62,9 @@ export const UI_STRINGS: Record<SupportedLanguage, UIStrings> = {
     thinking: "Sedang berfikir",
     done: "Selesai",
     viewReceipt: "Lihat resit",
+    viewDirections: "Lihat arah",
+    back: "Kembali",
+    yourLocation: "Lokasi anda",
     cannotSpeak: "Saya tidak boleh bercakap sekarang",
     typeInstead: "Taip sahaja",
     accessibilityOptions: "Pilihan kebolehcapaian",
@@ -65,6 +77,9 @@ export const UI_STRINGS: Record<SupportedLanguage, UIStrings> = {
     thinking: "சிந்திக்கிறது",
     done: "முடிந்தது",
     viewReceipt: "ரசீதைப் பார்க்கவும்",
+    viewDirections: "வழியைப் பார்க்கவும்",
+    back: "பின்செல்",
+    yourLocation: "உங்கள் இடம்",
     cannotSpeak: "என்னால் இப்போது பேச முடியாது",
     typeInstead: "தட்டச்சு செய்யவும்",
     accessibilityOptions: "அணுகல் விருப்பங்கள்",
@@ -80,6 +95,9 @@ export const UI_STRINGS: Record<SupportedLanguage, UIStrings> = {
     thinking: "咧想",
     done: "好啊",
     viewReceipt: "看收据",
+    viewDirections: "看路线",
+    back: "倒转",
+    yourLocation: "你的位置",
     cannotSpeak: "我这阵讲袂出嘴",
     typeInstead: "改用拍字",
     accessibilityOptions: "辅助选项",
@@ -94,6 +112,9 @@ export const UI_STRINGS: Record<SupportedLanguage, UIStrings> = {
     thinking: "谂紧",
     done: "搞掂",
     viewReceipt: "睇收据",
+    viewDirections: "睇路线",
+    back: "返去",
+    yourLocation: "你嘅位置",
     cannotSpeak: "我而家唔讲得话",
     typeInstead: "改用打字",
     accessibilityOptions: "无障碍选项",
