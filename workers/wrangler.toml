@@ -1,4 +1,4 @@
-name = "goodboyes"
+name = "goodbois"
 main = "src/index.ts"
 compatibility_date = "2026-05-09"
 
@@ -6,35 +6,41 @@ compatibility_date = "2026-05-09"
 [ai]
 binding = "AI"
 
+# WORKER_URL is intentionally NOT set here. The worker derives its public
+# origin from `c.req.url.origin` at request time, which is correct in both
+# `wrangler dev` (localhost) and deployed prod (workers.dev or custom
+# domain). Add it back to [env.production.vars] only if you ever need to
+# override that — e.g. serving receipts through a different domain than the
+# worker itself.
 [vars]
-WORKER_URL = "https://goodboyes.workers.dev"
 ONEMAP_API_BASE_URL = "https://www.onemap.gov.sg"
 ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
 
 # ---------------------------------------------------------------------------
-# Persistence bindings — NOT YET USED. Uncomment + create the Cloudflare
-# resources before relying on them.
+# Persistence bindings.
 #
-# Sessions and receipts currently live in-memory via createMemoryRepos
-# (workers/src/db/memory.ts). They reset on every worker reload, which is
-# fine for the demo. Switch to KV/D1 when scaling beyond a single instance.
+# KV   = ephemeral KioskSession state, wiped after each terminal turn.
+# D1   = durable artifacts (locations / receipts / cases audit trail).
+# R2   = NOT YET USED — reserved for generated receipt PDFs (Phase 5).
 #
-# To create the resources and get real IDs:
+# Before `wrangler dev` will start with these enabled, run:
 #   npx wrangler kv:namespace create SESSION_KV
 #   npx wrangler d1 create goodbois
-#   npx wrangler r2 bucket create goodbois-receipts
-# Paste the returned IDs into the bindings below and uncomment.
+# and paste the returned IDs into the placeholders below.
+#
+# Then apply the schema to your local D1 SQLite mirror:
+#   npx wrangler d1 migrations apply goodbois --local
 # ---------------------------------------------------------------------------
-#
-# [[kv_namespaces]]
-# binding = "SESSION_KV"
-# id = "REPLACE_WITH_REAL_KV_ID"
-#
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "goodbois"
-# database_id = "REPLACE_WITH_REAL_D1_ID"
-#
+
+[[kv_namespaces]]
+binding = "SESSION_KV"
+id = "97e6a6347e584c5f80870af45dcb3673"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "goodbois"
+database_id = "1e13f482-3d39-4599-9c48-e166d3360ed6"
+
 # [[r2_buckets]]
 # binding = "RECEIPTS"
 # bucket_name = "goodbois-receipts"

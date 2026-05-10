@@ -12,6 +12,7 @@ import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
 import { makeD1Repos } from "./db/d1";
+import { KVSessionRepo } from "./db/kv/sessions";
 import { renderReceiptHtml } from "./receipt/render";
 import { orchestrate, type OrchestratorEnv } from "./orchestrator";
 import { makeHazardMailer } from "./integrations/email";
@@ -20,6 +21,7 @@ import { findRoutes, type WorkerEnv } from "./tools/oneMapRouting";
 
 export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
   DB?: D1Database;
+  SESSION_KV?: KVNamespace;
   WORKER_URL?: string;
   RESEND_API_KEY?: string;
   HAZARD_NOTIFY_EMAIL?: string;
@@ -28,8 +30,20 @@ export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
 
 let memoryRepos: Repos | null = null;
 async function getRepos(env: WorkerBindings | undefined): Promise<Repos> {
-  if (env?.DB) return makeD1Repos(env.DB);
-  // Fallback for local dev / tests without a D1 binding.
+  // Production / configured-dev path: D1 for durable artifacts, KV for sessions.
+  if (env?.DB && env?.SESSION_KV) {
+    const d1 = await makeD1Repos(env.DB);
+    return { ...d1, sessions: new KVSessionRepo(env.SESSION_KV) };
+  }
+  // Partial bindings are a footgun — multi-isolate prod requires both.
+  if (env?.DB || env?.SESSION_KV) {
+    console.warn(
+      "[getRepos] Partial persistence bindings detected " +
+        `(DB=${env?.DB ? "set" : "unset"}, SESSION_KV=${env?.SESSION_KV ? "set" : "unset"}). ` +
+        "Falling back to in-memory repos. Configure both in wrangler.toml for production behavior.",
+    );
+  }
+  // Fallback for local dev / tests without persistence bindings.
   if (!memoryRepos) memoryRepos = createMemoryRepos(seedAgencies);
   return memoryRepos;
 }
