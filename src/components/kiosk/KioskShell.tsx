@@ -605,6 +605,8 @@ export default function KioskShell() {
   const handleBlobActivate = () => {
     if (state === "idle" || state === "chat") {
       setState("listening");
+    } else if (state === "listening") {
+      handleStop();
     }
   };
 
