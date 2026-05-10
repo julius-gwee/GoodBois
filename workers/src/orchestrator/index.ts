@@ -20,6 +20,7 @@ import type {
   KioskSession,
   ReportHazardResult,
   SignpostResult,
+  ToolInvocationSummary,
   ToolResult,
   TurnRequest,
   TurnResponse,
@@ -154,8 +155,10 @@ export async function orchestrate(
   };
 
   let receiptUrl: string | undefined;
+  const toolCalls: ToolInvocationSummary[] = [];
   for (const call of decision.toolCalls) {
     const result = await invokeTool(call, ctx);
+    toolCalls.push(summariseInvocation(call, result));
     if (result.ok) {
       capturePriorResult(ctx, call.name, result);
       if (call.name === "generateReceipt") {
@@ -189,7 +192,23 @@ export async function orchestrate(
     kioskMessage: kioskMessageUserLang,
     audioUrl,
     receiptUrl,
+    toolCalls,
   };
+}
+
+function summariseInvocation(
+  call: { name: "signpost" | "reportHazard" | "generateReceipt"; args: unknown },
+  result: ToolResult,
+): ToolInvocationSummary {
+  if (result.ok) {
+    return {
+      name: call.name,
+      args: call.args,
+      ok: true,
+      data: result.data,
+    } as ToolInvocationSummary;
+  }
+  return { name: call.name, args: call.args, ok: false, error: result.error };
 }
 
 // ---------------------------------------------------------------------------
