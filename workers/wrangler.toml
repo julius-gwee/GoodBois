@@ -1,0 +1,44 @@
+name = "goodboyes"
+main = "src/index.ts"
+compatibility_date = "2026-05-09"
+
+# AI binding (Whisper STT, MeloTTS) — used today.
+[ai]
+binding = "AI"
+
+[vars]
+WORKER_URL = "https://goodboyes.workers.dev"
+ONEMAP_API_BASE_URL = "https://www.onemap.gov.sg"
+ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
+
+# ---------------------------------------------------------------------------
+# Persistence bindings — NOT YET USED. Uncomment + create the Cloudflare
+# resources before relying on them.
+#
+# Sessions and receipts currently live in-memory via createMemoryRepos
+# (workers/src/db/memory.ts). They reset on every worker reload, which is
+# fine for the demo. Switch to KV/D1 when scaling beyond a single instance.
+#
+# To create the resources and get real IDs:
+#   npx wrangler kv:namespace create SESSION_KV
+#   npx wrangler d1 create goodbois
+#   npx wrangler r2 bucket create goodbois-receipts
+# Paste the returned IDs into the bindings below and uncomment.
+# ---------------------------------------------------------------------------
+#
+# [[kv_namespaces]]
+# binding = "SESSION_KV"
+# id = "REPLACE_WITH_REAL_KV_ID"
+#
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "goodbois"
+# database_id = "REPLACE_WITH_REAL_D1_ID"
+#
+# [[r2_buckets]]
+# binding = "RECEIPTS"
+# bucket_name = "goodbois-receipts"
+
+# Configure secrets with Wrangler, never in this file:
+#   wrangler secret put SEALION_API_KEY
+#   wrangler secret put ONEMAP_ACCESS_TOKEN  (NTH map render only)

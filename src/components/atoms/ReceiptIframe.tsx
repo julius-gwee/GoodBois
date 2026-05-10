@@ -4,20 +4,20 @@ import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ReceiptIframeProps = {
-  pdfUrl: string;
+  src: string;
   onBack: () => void;
   className?: string;
 };
 
 export default function ReceiptIframe({
-  pdfUrl,
+  src,
   onBack,
   className,
 }: ReceiptIframeProps) {
   return (
     <div className={cn("relative h-screen w-screen bg-soft-cream", className)}>
       <iframe
-        src={pdfUrl}
+        src={src}
         title="Receipt / 收据"
         className="h-full w-full border-0 bg-soft-cream"
       />

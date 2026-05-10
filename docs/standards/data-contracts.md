@@ -188,6 +188,8 @@ type AgencyContact = {
 
 The directory now includes MP / RC / town-council / hazard-authority entries so `signpost` can cover both routing and escalation use cases.
 
+> D1 table: `locations`. Columns are snake-cased (`opening_hours`, `multilingual_blurb`, `walking_directions`, etc.). See `workers/migrations/0001_initial.sql`.
+
 ## Receipt (D1 — MVP)
 
 ```ts
@@ -205,6 +207,31 @@ type Receipt = {
 ```
 
 Served as bilingual HTML at `GET /receipts/:id`. No PDF, no R2 in the MVP path.
+
+> D1 table: `receipts`. Columns are snake-cased (`session_id`, `things_to_bring_json`, etc.). See `workers/migrations/0001_initial.sql`.
+
+## SessionCase (D1 — session-history audit)
+
+Re-introduced 2026-05-10 as a session-history audit table. Distinct from the deprecated `Case` shape (which was tied to MP/RC CSV export — that's gone).
+
+```ts
+type SessionCase = {
+  id: string;                  // "GBC-20260510-001"
+  sessionId: string;
+  kioskId: string;
+  srcLang: string;             // BCP-47
+  requestType: "signpost" | "report_hazard" | "out_of_scope";
+  history: Array<{ role: "user" | "kiosk"; textEnglish: string; spokenAt: string }>;
+  toolCalls: Array<{ name: string; args: unknown }>;
+  kioskMessage: string;        // English; pre-translation
+  receiptId?: string;          // FK → Receipt.id
+  hazardReferenceId?: string;
+  signpostedAgencyKey?: string; // FK → AgencyContact.key
+  createdAt: string;
+};
+```
+
+D1 table: `cases`. Columns are snake-cased (`session_id`, `history_json`, `tool_calls_json`, etc.). See `workers/migrations/0001_initial.sql` and `workers/src/db/d1/types.ts`. Written exactly once per session at the orchestrator's terminal turn (Stage 6), right after KV reset.
 
 ## ToolInvocation (D1 — audit log)
 
@@ -251,7 +278,7 @@ Optional for the demo; useful if a post-mortem audit is needed.
 These were part of the prior agent flow and are retained here only so old code can be located and removed.
 
 - **`TriageResult`** — replaced by `LLMTurnDecision`. Old fields (`outcome`, `confidence`, `selectedToolName`, `selectedAgencyKey`, `followupQuestion`, `reasoningSummary`) are gone.
-- **`Case`** — escalation is now expressed by `signpost` (MP / CC contact) + `generateReceipt` (case summary). The `Case` row and MP/RC CSV export are not part of the MVP demo. They may return as a post-demo audit table; do not block MVP work on them.
+- **`Case` (old shape)** — the original `Case` row tied to MP/RC CSV export is gone. Superseded by **`SessionCase`** (see above), which lands the audit-table use case with a different shape (no `summaryEnglish`, `transcript`, `residentBlock`, `status`, or `exportChannel` fields).
 - **`BookingConfirmation`** — `simulateBooking` is removed.
 
 ---

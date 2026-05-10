@@ -1,12 +1,16 @@
-import type { AgencyContact, Case, Receipt, ToolInvocation } from "../types/contracts";
+import type {
+  AgencyContact,
+  KioskSession,
+  Receipt,
+  ToolInvocation,
+} from "../types/contracts";
 import { generateId } from "./ids";
 import type {
   AgencyRepo,
-  CaseRepo,
-  NewCaseInput,
   NewReceiptInput,
   ReceiptRepo,
   Repos,
+  SessionRepo,
   ToolInvocationRepo,
 } from "./repos";
 
@@ -14,8 +18,8 @@ export function createMemoryRepos(seedAgencies: AgencyContact[]): Repos {
   const agencies = new Map<string, AgencyContact>();
   for (const a of seedAgencies) agencies.set(a.key, a);
 
-  const cases = new Map<string, Case>();
   const receipts = new Map<string, Receipt>();
+  const sessions = new Map<string, KioskSession>();
   const toolInvocations: ToolInvocation[] = [];
 
   const agencyRepo: AgencyRepo = {
@@ -33,38 +37,12 @@ export function createMemoryRepos(seedAgencies: AgencyContact[]): Repos {
     },
   };
 
-  const caseRepo: CaseRepo = {
-    async create(input: NewCaseInput) {
-      const id = generateId("GBC");
-      const now = new Date().toISOString();
-      const row: Case = { ...input, id, createdAt: now, status: "queued" };
-      cases.set(id, row);
-      return row;
-    },
-    async getById(id) {
-      return cases.get(id) ?? null;
-    },
-    async listForExport() {
-      return Array.from(cases.values()).filter(
-        (c) => c.status === "queued" || c.status === "exported",
-      );
-    },
-    async markExported(id, at) {
-      const row = cases.get(id);
-      if (!row) return;
-      row.status = "exported";
-      row.exportedAt = at;
-      cases.set(id, row);
-    },
-  };
-
   const receiptRepo: ReceiptRepo = {
-    async create(input: NewReceiptInput, pdfUrl: string) {
+    async create(input: NewReceiptInput) {
       const id = generateId("GBR");
       const row: Receipt = {
         ...input,
         id,
-        pdfUrl,
         generatedAt: new Date().toISOString(),
       };
       receipts.set(id, row);
@@ -72,6 +50,27 @@ export function createMemoryRepos(seedAgencies: AgencyContact[]): Repos {
     },
     async getById(id) {
       return receipts.get(id) ?? null;
+    },
+  };
+
+  const sessionRepo: SessionRepo = {
+    async get(id) {
+      const row = sessions.get(id);
+      if (!row) return null;
+      // Return a deep-ish clone so callers can mutate without aliasing.
+      return {
+        ...row,
+        history: row.history.map((m) => ({ ...m })),
+      };
+    },
+    async put(session) {
+      sessions.set(session.id, {
+        ...session,
+        history: session.history.map((m) => ({ ...m })),
+      });
+    },
+    async delete(id) {
+      sessions.delete(id);
     },
   };
 
@@ -83,8 +82,8 @@ export function createMemoryRepos(seedAgencies: AgencyContact[]): Repos {
 
   return {
     agencies: agencyRepo,
-    cases: caseRepo,
     receipts: receiptRepo,
+    sessions: sessionRepo,
     toolInvocations: toolInvocationRepo,
   };
 }

@@ -1,0 +1,18 @@
+# .dev.vars.example — Worker secrets and local config for `wrangler dev`.
+# Copy to .dev.vars and fill in values. .dev.vars is gitignored.
+
+# Resend (https://resend.com) — for hazard report email dispatch.
+# Sign up, get an API key from https://resend.com/api-keys.
+RESEND_API_KEY=
+
+# Where hazard report emails get sent. At demo time, set this to the
+# judge's email so they receive the email when the demo runs.
+HAZARD_NOTIFY_EMAIL=
+
+# Optional: override the From address. Default uses Resend's free
+# testing address `onboarding@resend.dev`. Override only if you've
+# verified your own domain in Resend.
+# HAZARD_FROM_EMAIL=GoodBois <hazards@yourdomain.com>
+
+# (Existing keys may already live in .dev.vars — this example only
+# documents the new variables added by the hazard-email branch.)

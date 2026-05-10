@@ -1,13 +1,26 @@
 // workers/src/orchestrator/index.ts
 //
-// Runtime orchestrator for the GoodBois kiosk. Coordinates STT, translation,
-// inquiry agent, triage agent, processing (Dev B's runProcessing), TTS, and
-// final TurnResponse assembly.
+// Six-stage flow per docs/refactor/2026-05-09-llm-turn-decision.md §2.
+//
+//   1. STT                         audio → { transcript_en, srcLang }
+//   2. Classifier loop             one call per /turn invocation; if ask_followup,
+//                                  persist session + return state="followup"
+//   3. Main LLM (retry guard)      LLMTurnDecision with mandatory generateReceipt
+//   4. Tool dispatch               registry.invokeTool walks toolCalls in order
+//   5. Translate kioskMessage + TTS
+//   6. Respond + KV reset          delete session so the next user starts fresh
+//
+// The orchestrator is a dumb dispatcher. No business logic about which tool
+// runs when — that's the LLM's job. The only invariants the orchestrator owns
+// are session state, tool ordering, and the receipt-mandatory guard (which
+// itself lives in the main agent).
 
 import type {
-  AgencyContact,
-  TriageOutcome,
-  TriageResult,
+  GenerateReceiptResult,
+  KioskSession,
+  ReportHazardResult,
+  SignpostResult,
+  ToolResult,
   TurnRequest,
   TurnResponse,
 } from "../types/contracts";
@@ -15,21 +28,18 @@ import { sttAdapter, type SttEnv } from "../ai/sttAdapter";
 import { ttsAdapter, type TtsEnv } from "../ai/ttsAdapter";
 import { translateAdapter, type TranslateEnv } from "../ai/translateAdapter";
 import { type LlmEnv } from "../ai/llmAdapter";
-import { runInquiry } from "../agents/inquiry";
-import { runTriage, type TriageDecision } from "../agents/triage";
-import {
-  runProcessing,
-  type ProcessingOutput,
-} from "../agents/processing";
+import { runClassifier } from "../agents/classifier";
+import { runMainAgent } from "../agents/main";
+import { invokeTool, type ToolCtx } from "../tools/registry";
 import type { Repos } from "../db/repos";
+import type { HazardMailer } from "../integrations/email";
 
 export type OrchestratorEnv = SttEnv & TtsEnv & TranslateEnv & LlmEnv;
 
 export type OrchestratorDeps = {
   repos: Repos;
   workerUrl: string;
-  turnCount?: number;
-  kioskId?: string;
+  hazardMailer?: HazardMailer;
 };
 
 export async function orchestrate(
@@ -37,239 +47,269 @@ export async function orchestrate(
   env: OrchestratorEnv,
   deps: OrchestratorDeps,
 ): Promise<TurnResponse> {
-  const sessionId = req.sessionId ?? `session-${Date.now()}`;
-  const userLang = req.language;
-  const turnCount = deps.turnCount ?? 0;
+  const sessionId = req.sessionId ?? newSessionId();
 
-  // 1. Resolve transcript (STT or text input)
-  let transcriptOriginal: string;
+  // Load existing session or start a fresh one.
+  let session =
+    (req.sessionId ? await deps.repos.sessions.get(req.sessionId) : null) ??
+    newSession(sessionId, req.kioskId);
+
+  // ---------------------------------------------------------------------
+  // Stage 1 — STT (or text fallback)
+  // ---------------------------------------------------------------------
+  let transcriptEn: string;
+  let srcLang: string;
+
   if (req.audioBase64) {
     try {
       const audio = base64ToArrayBuffer(req.audioBase64);
-      const sttResult = await sttAdapter({ audio, language: userLang }, env);
-      transcriptOriginal = sttResult.transcript;
+      const stt = await sttAdapter({ audio }, env);
+      transcriptEn = stt.transcript_en;
+      srcLang = stt.srcLang;
     } catch (e) {
-      return errorResponse(sessionId, userLang, "STT_FAILED", String(e));
+      return errorResponse(
+        sessionId,
+        session.srcLang ?? "en",
+        "STT_FAILED",
+        e instanceof Error ? e.message : String(e),
+      );
     }
   } else if (req.text) {
-    transcriptOriginal = req.text;
+    transcriptEn = req.text;
+    srcLang = session.srcLang ?? "en";
   } else {
     return errorResponse(
       sessionId,
-      userLang,
+      session.srcLang ?? "en",
       "MISSING_INPUT",
       "Either audioBase64 or text must be provided.",
     );
   }
 
-  // 2. Translate to English (skip if already English)
-  let transcriptEnglish: string;
-  if (userLang === "en") {
-    transcriptEnglish = transcriptOriginal;
-  } else {
-    try {
-      const t = await translateAdapter(
-        { text: transcriptOriginal, from: userLang, to: "en" },
-        env,
-      );
-      transcriptEnglish = t.translated;
-    } catch (e) {
-      return errorResponse(sessionId, userLang, "TRANSLATE_FAILED", String(e));
-    }
-  }
+  // First STT result locks the session's source language.
+  if (!session.srcLang) session.srcLang = srcLang;
 
-  // 3. Inquiry — does the kiosk need to ask one more question?
-  const inquiry = await runInquiry(
-    { transcriptEnglish, turnCount, language: userLang },
+  // history holds *prior* turns. The classifier and main-LLM adapters
+  // append `transcriptEn` themselves as the final user message — pushing it
+  // here too would put two consecutive user-role messages into the chat,
+  // which SEALion rejects with 400.
+
+  // ---------------------------------------------------------------------
+  // Stage 2 — Classifier
+  // ---------------------------------------------------------------------
+  const classification = await runClassifier(
+    { transcriptEn, history: session.history },
     env,
   );
 
-  if (inquiry.kind === "ask_followup") {
-    const questionInUserLang =
-      userLang === "en"
-        ? inquiry.question
-        : (
-            await translateAdapter(
-              { text: inquiry.question, from: "en", to: userLang },
-              env,
-            )
-          ).translated;
-
-    return {
-      sessionId,
-      state: "followup",
-      transcript: {
-        original: transcriptOriginal,
-        english: transcriptEnglish,
-        language: userLang,
-      },
-      kioskMessage: {
-        original: questionInUserLang,
-        english: inquiry.question,
-        language: userLang,
-      },
-      triage: { outcome: "ask_followup", confidence: "high" },
-      nextActions: ["listen", "type"],
-    };
-  }
-
-  // 4. Triage — get a decision, then wrap into a full audit row
-  const decision: TriageDecision = await runTriage(
-    { transcriptEnglish, language: userLang },
-    env,
-  );
-  const triage: TriageResult = {
-    id: `tri-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    sessionId,
-    outcome: decision.outcome,
-    confidence: decision.confidence,
-    selectedToolName: decision.selectedToolName,
-    selectedAgencyKey: decision.selectedAgencyKey,
-    reasoningSummary: "auto",
-    createdAt: new Date().toISOString(),
-  };
-
-  // 5. Processing — Dev B's allowlisted tool dispatch
-  const processing: ProcessingOutput = await runProcessing(
-    {
-      sessionId,
-      language: userLang,
-      triage,
-      transcriptEnglish,
-      workerUrl: deps.workerUrl,
-      kioskId: deps.kioskId,
-    },
-    deps.repos,
-  );
-
-  if (processing.error) {
-    return {
-      ...errorResponse(
-        sessionId,
-        userLang,
-        processing.error.code,
-        processing.error.message,
-      ),
-      triage: decision,
-    };
-  }
-
-  // 6. Build the response message in English
-  const responseEnglish = buildResponseMessage(decision, processing);
-
-  // 7. Translate response back to user language
-  let responseUserLang = responseEnglish;
-  if (userLang !== "en") {
-    try {
-      const t = await translateAdapter(
-        { text: responseEnglish, from: "en", to: userLang },
-        env,
-      );
-      responseUserLang = t.translated;
-    } catch {
-      // If translate-back fails, fall back to English. Demo continues.
-      responseUserLang = responseEnglish;
-    }
-  }
-
-  // 8. TTS (best-effort; mock-mode returns nothing and frontend renders silent)
-  let audioUrl: string | undefined;
-  try {
-    const tts = await ttsAdapter(
-      { text: responseUserLang, language: userLang },
+  if (
+    classification.requestType === "ask_followup" &&
+    classification.followupPrompt
+  ) {
+    return handleFollowup(
+      session,
+      transcriptEn,
+      classification.followupPrompt,
       env,
+      deps,
     );
-    audioUrl = tts.audioUrl;
-  } catch {
-    audioUrl = undefined;
   }
+
+  // Classifier returned a terminal type — fall through to the main agent.
+  // (ask_followup with empty prompt is downgraded to out_of_scope inside
+  //  the classifier agent itself, so we never hit it here.)
+  const requestType =
+    classification.requestType === "ask_followup"
+      ? "out_of_scope"
+      : classification.requestType;
+
+  // ---------------------------------------------------------------------
+  // Stage 3 — Main LLM (with retry guard)
+  // ---------------------------------------------------------------------
+  const agencies = await deps.repos.agencies.list({ activeOnly: true });
+  const agencyKeys = agencies.map((a) => a.key);
+
+  const decision = await runMainAgent(
+    {
+      requestType,
+      transcriptEn,
+      history: session.history,
+      agencyKeys,
+      srcLang: session.srcLang,
+    },
+    env,
+  );
+
+  // ---------------------------------------------------------------------
+  // Stage 4 — Tool dispatch (in array order, no business logic)
+  // ---------------------------------------------------------------------
+  const ctx: ToolCtx = {
+    repos: deps.repos,
+    workerUrl: deps.workerUrl,
+    sessionId,
+    srcLang: session.srcLang,
+    kioskId: session.kioskId,
+    hazardMailer: deps.hazardMailer,
+    priorToolResults: {},
+  };
+
+  let receiptUrl: string | undefined;
+  for (const call of decision.toolCalls) {
+    const result = await invokeTool(call, ctx);
+    if (result.ok) {
+      capturePriorResult(ctx, call.name, result);
+      if (call.name === "generateReceipt") {
+        receiptUrl = (result.data as GenerateReceiptResult).url;
+      }
+    }
+    // Tool errors are swallowed — the demo continues with the rest of the
+    // toolCalls. The receipt is the user-visible artefact; if it failed
+    // receiptUrl stays undefined and the frontend handles the absence.
+  }
+
+  // ---------------------------------------------------------------------
+  // Stage 5 — Translate kioskMessage + TTS
+  // ---------------------------------------------------------------------
+  const kioskMessageUserLang = await translateForUser(
+    decision.kioskMessage,
+    session.srcLang,
+    env,
+  );
+  const audioUrl = await synthesise(kioskMessageUserLang, session.srcLang, env);
+
+  // ---------------------------------------------------------------------
+  // Stage 6 — Respond + KV reset
+  // ---------------------------------------------------------------------
+  await deps.repos.sessions.delete(sessionId);
 
   return {
     sessionId,
-    state: decision.outcome === "escalate" ? "receipt" : "response",
-    transcript: {
-      original: transcriptOriginal,
-      english: transcriptEnglish,
-      language: userLang,
-    },
-    kioskMessage: {
-      original: responseUserLang,
-      english: responseEnglish,
-      language: userLang,
-    },
-    triage: decision,
-    agencyContact: processing.agencyContact,
-    case: processing.case,
-    receipt: processing.receipt,
+    state: "done",
+    transcript: { english: transcriptEn, srcLang: session.srcLang },
+    kioskMessage: kioskMessageUserLang,
     audioUrl,
-    nextActions: nextActionsFor(decision.outcome),
+    receiptUrl,
   };
 }
 
-function buildResponseMessage(
-  decision: TriageDecision,
-  processing: ProcessingOutput,
-): string {
-  const agency: AgencyContact | undefined = processing.agencyContact;
+// ---------------------------------------------------------------------------
+// Followup branch
+// ---------------------------------------------------------------------------
 
-  if (decision.outcome === "signpost" && agency) {
-    const blurb = agency.multilingualBlurb.en ?? "";
-    return blurb
-      ? `I can connect you with ${agency.name}. ${blurb}`
-      : `I can connect you with ${agency.name}.`;
-  }
-  if (decision.outcome === "escalate") {
-    return "I have recorded this for the volunteer team to follow up. Please keep this receipt.";
-  }
-  if (decision.outcome === "out_of_scope" && agency) {
-    return `For this, please contact ${agency.name}.`;
-  }
-  if (decision.outcome === "find_nearby") {
-    return "Here are the nearest options I could find.";
-  }
-  return "I am not sure how to help with that. Let me record this for a volunteer.";
-}
+async function handleFollowup(
+  session: KioskSession,
+  transcriptEn: string,
+  followupPromptEn: string,
+  env: OrchestratorEnv,
+  deps: OrchestratorDeps,
+): Promise<TurnResponse> {
+  const srcLang = session.srcLang ?? "en";
+  const promptUserLang = await translateForUser(followupPromptEn, srcLang, env);
+  const audioUrl = await synthesise(promptUserLang, srcLang, env);
 
-function nextActionsFor(outcome: TriageOutcome): TurnResponse["nextActions"] {
-  switch (outcome) {
-    case "signpost":
-      return ["accept_escalation", "decline_escalation", "show_receipt"];
-    case "escalate":
-      return ["show_receipt", "reset"];
-    case "find_nearby":
-      return ["accept_escalation", "decline_escalation"];
-    case "out_of_scope":
-    case "ask_followup":
-    default:
-      return ["reset"];
-  }
-}
+  // Persist both sides of this turn so the next /turn invocation's classifier
+  // sees the full conversation context.
+  const now = new Date().toISOString();
+  session.history.push(
+    { role: "user", textEnglish: transcriptEn, spokenAt: now },
+    { role: "kiosk", textEnglish: followupPromptEn, spokenAt: now },
+  );
 
-function errorResponse(
-  sessionId: string,
-  language: string,
-  code: string,
-  message: string,
-): TurnResponse {
+  await deps.repos.sessions.put(session);
+
   return {
-    sessionId,
-    state: "error",
-    kioskMessage: {
-      original: "Sorry, I could not process that. Please try again.",
-      english: "Sorry, I could not process that. Please try again.",
-      language,
-    },
-    nextActions: ["reset"],
-    error: { code, message, fallbackAvailable: true },
+    sessionId: session.id,
+    state: "followup",
+    transcript: { english: transcriptEn, srcLang },
+    kioskMessage: promptUserLang,
+    audioUrl,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function newSession(id: string, kioskId: string): KioskSession {
+  return {
+    id,
+    kioskId,
+    history: [],
+    startedAt: new Date().toISOString(),
+  };
+}
+
+function newSessionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `kiosk-${crypto.randomUUID()}`;
+  }
+  return `kiosk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function capturePriorResult(
+  ctx: ToolCtx,
+  name: "signpost" | "reportHazard" | "generateReceipt",
+  result: ToolResult,
+): void {
+  if (!result.ok) return;
+  if (name === "signpost") {
+    ctx.priorToolResults.signpost = result.data as SignpostResult;
+  } else if (name === "reportHazard") {
+    ctx.priorToolResults.reportHazard = result.data as ReportHazardResult;
+  } else if (name === "generateReceipt") {
+    ctx.priorToolResults.generateReceipt = result.data as GenerateReceiptResult;
+  }
+}
+
+async function translateForUser(
+  textEn: string,
+  srcLang: string,
+  env: TranslateEnv,
+): Promise<string> {
+  if (srcLang === "en" || srcLang.startsWith("en-")) return textEn;
+  try {
+    const t = await translateAdapter({ text: textEn, from: "en", to: srcLang }, env);
+    return t.translated;
+  } catch {
+    return textEn; // demo continues in English if SEALion is down
+  }
+}
+
+async function synthesise(
+  text: string,
+  language: string,
+  env: TtsEnv,
+): Promise<string | undefined> {
+  try {
+    const tts = await ttsAdapter({ text, language }, env);
+    if (tts.audioUrl) return tts.audioUrl;
+    if (tts.audioBase64) return `data:audio/mpeg;base64,${tts.audioBase64}`;
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);
   const len = binary.length;
   const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
+  for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
 }
+
+function errorResponse(
+  sessionId: string,
+  srcLang: string,
+  code: string,
+  message: string,
+): TurnResponse {
+  return {
+    sessionId,
+    state: "done",
+    transcript: { english: "", srcLang },
+    kioskMessage: "Sorry, I could not process that. Please try again.",
+    error: { code, message, fallbackAvailable: true },
+  };
+}
+

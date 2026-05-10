@@ -1,13 +1,12 @@
 "use client";
 
 import ReceiptIframe from "@/components/atoms/ReceiptIframe";
-import type { Receipt } from "@/types/goodbois";
 
 type ReceiptStateProps = {
-  receipt: Receipt;
+  receiptUrl: string;
   onBack: () => void;
 };
 
-export default function ReceiptState({ receipt, onBack }: ReceiptStateProps) {
-  return <ReceiptIframe pdfUrl={receipt.pdfUrl} onBack={onBack} />;
+export default function ReceiptState({ receiptUrl, onBack }: ReceiptStateProps) {
+  return <ReceiptIframe src={receiptUrl} onBack={onBack} />;
 }

@@ -2,33 +2,35 @@
 //
 // GoodBois kiosk Worker entry. Hono router with:
 //   GET  /health
-//   POST /turn               (Lane A — orchestrator)
-//   GET  /receipts/:id       (Lane B — bilingual HTML)
-//   GET  /export/cases.csv   (Lane B — token-gated)
+//   POST /turn               — six-stage orchestrator (spec §2)
+//   GET  /receipts/:id       — bilingual HTML render
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { ResourceFilters, RouteMode, TurnRequest, TurnResponse } from "./types/contracts";
+import type { TurnRequest, TurnResponse } from "./types/contracts";
 import { agencies as seedAgencies } from "./db/seeds/agencies";
 import { createMemoryRepos } from "./db/memory";
 import type { Repos } from "./db/repos";
+import { makeD1Repos } from "./db/d1";
 import { renderReceiptHtml } from "./receipt/render";
-import { casesToCsv } from "./export/casesCsv";
 import { orchestrate, type OrchestratorEnv } from "./orchestrator";
-import { findMapResources } from "./tools/findMapResources";
-import { findRoutes, type WorkerEnv } from "./tools/oneMapRouting";
+import { makeHazardMailer } from "./integrations/email";
+import { reportHazard } from "./tools/reportHazard";
 
-// Worker bindings — superset of Dev B's Env (EXPORT_TOKEN, WORKER_URL) plus
-// Lane A's AI adapter env vars.
-export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
-  EXPORT_TOKEN: string;
+export type WorkerBindings = OrchestratorEnv & {
+  DB?: D1Database;
   WORKER_URL?: string;
+  RESEND_API_KEY?: string;
+  HAZARD_NOTIFY_EMAIL?: string;
+  HAZARD_FROM_EMAIL?: string;
 };
 
-let repos: Repos | null = null;
-function getRepos(): Repos {
-  if (!repos) repos = createMemoryRepos(seedAgencies);
-  return repos;
+let memoryRepos: Repos | null = null;
+async function getRepos(env: WorkerBindings | undefined): Promise<Repos> {
+  if (env?.DB) return makeD1Repos(env.DB);
+  // Fallback for local dev / tests without a D1 binding.
+  if (!memoryRepos) memoryRepos = createMemoryRepos(seedAgencies);
+  return memoryRepos;
 }
 
 const RECEIPT_ID_RE = /^GBR-\d{8}-\d{3}$/;
@@ -40,47 +42,11 @@ app.use(
   cors({
     origin: "*",
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["content-type", "x-kawan-turn-count"],
+    allowHeaders: ["content-type"],
   }),
 );
 
 app.get("/health", (c) => c.json({ ok: true, service: "goodbois-worker" }));
-
-app.get("/resources", (c) => {
-  const filters: ResourceFilters = {
-    query: c.req.query("query"),
-    category: (c.req.query("category") as ResourceFilters["category"]) ?? "all",
-    language: (c.req.query("language") as ResourceFilters["language"]) ?? "all",
-  };
-
-  return c.json({ resources: findMapResources(filters) });
-});
-
-app.post("/routes", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as {
-    destinationResourceId?: string;
-    mode?: RouteMode;
-  };
-  const resources = findMapResources();
-  const destinationResourceId = body.destinationResourceId ?? resources[0]?.id;
-  const resource = resources.find((candidate) => candidate.id === destinationResourceId);
-  if (!destinationResourceId || !resource) {
-    return c.json(
-      {
-        error: {
-          code: "RESOURCE_NOT_FOUND",
-          message: "Destination resource is not available for route rendering.",
-          fallbackAvailable: true,
-        },
-      },
-      404,
-    );
-  }
-
-  const routes = await findRoutes(resource, body.mode, c.env);
-
-  return c.json({ routes });
-});
 
 app.post("/turn", async (c) => {
   let body: Partial<TurnRequest>;
@@ -99,12 +65,12 @@ app.post("/turn", async (c) => {
     );
   }
 
-  if (!body.kioskId || !body.language || !body.mode) {
+  if (!body.kioskId) {
     return c.json(
       {
         error: {
           code: "INVALID_REQUEST",
-          message: "kioskId, language, and mode are required.",
+          message: "kioskId is required.",
           fallbackAvailable: true,
         },
       },
@@ -112,18 +78,31 @@ app.post("/turn", async (c) => {
     );
   }
 
-  const turnCount = Number(c.req.header("x-kawan-turn-count") ?? "0");
+  if (!body.audioBase64 && !body.text) {
+    return c.json(
+      {
+        error: {
+          code: "MISSING_INPUT",
+          message: "Either audioBase64 or text must be provided.",
+          fallbackAvailable: true,
+        },
+      },
+      400,
+    );
+  }
+
   const workerUrl = c.env.WORKER_URL ?? new URL(c.req.url).origin;
+  const hazardMailer = makeHazardMailer({
+    apiKey: c.env.RESEND_API_KEY,
+    recipient: c.env.HAZARD_NOTIFY_EMAIL,
+    from: c.env.HAZARD_FROM_EMAIL,
+  });
 
   try {
     const response: TurnResponse = await orchestrate(
       body as TurnRequest,
       c.env,
-      {
-        repos: getRepos(),
-        workerUrl,
-        turnCount: Number.isFinite(turnCount) ? turnCount : 0,
-      },
+      { repos: await getRepos(c.env), workerUrl, hazardMailer },
     );
     return c.json(response);
   } catch (e) {
@@ -131,18 +110,79 @@ app.post("/turn", async (c) => {
     return c.json(
       {
         sessionId: body.sessionId ?? `session-${Date.now()}`,
-        state: "error",
-        kioskMessage: {
-          original: "Sorry, the kiosk hit an unexpected error.",
-          english: "Sorry, the kiosk hit an unexpected error.",
-          language: body.language,
-        },
-        nextActions: ["reset"],
+        state: "done",
+        transcript: { english: "", srcLang: "en" },
+        kioskMessage: "Sorry, the kiosk hit an unexpected error.",
         error: {
           code: "ORCHESTRATOR_FAILED",
           message,
           fallbackAvailable: true,
         },
+      } satisfies TurnResponse,
+      500,
+    );
+  }
+});
+
+// DEV-ONLY: trigger reportHazard directly to verify the email path before
+// the Phase 7 orchestrator wires it through /turn. Remove or gate behind
+// an env flag before production.
+//
+// This route AWAITS the mailer call (bypassing the fire-and-forget pattern)
+// so any Resend API error surfaces in the response — useful for debugging.
+app.post("/dev/test-hazard", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Partial<{
+    category: string;
+    location: string;
+    description: string;
+    sessionId: string;
+    srcLang: string;
+  }>;
+  const hazardMailer = makeHazardMailer({
+    apiKey: c.env.RESEND_API_KEY,
+    recipient: c.env.HAZARD_NOTIFY_EMAIL,
+    from: c.env.HAZARD_FROM_EMAIL,
+  });
+
+  if (!hazardMailer) {
+    return c.json(
+      {
+        ok: false,
+        error: "MAILER_NOT_CONFIGURED",
+        recipient: c.env.HAZARD_NOTIFY_EMAIL ?? null,
+        hasApiKey: Boolean(c.env.RESEND_API_KEY),
+      },
+      500,
+    );
+  }
+
+  const referenceId = `HZ-TEST-${Date.now()}`;
+  const input = {
+    category: body.category ?? "lighting",
+    location: body.location ?? "Block 123 void deck (test)",
+    description: body.description ?? "Test hazard report — please ignore",
+    referenceId,
+    routedTo: "town-council",
+    sessionId: body.sessionId ?? `test-${Date.now()}`,
+    srcLang: body.srcLang ?? "en-SG",
+  };
+
+  try {
+    await hazardMailer(input);
+    return c.json({
+      ok: true,
+      referenceId,
+      recipient: c.env.HAZARD_NOTIFY_EMAIL ?? null,
+    });
+  } catch (e) {
+    const err = e as Error;
+    console.error("[/dev/test-hazard] mailer error:", err);
+    return c.json(
+      {
+        ok: false,
+        error: "MAILER_FAILED",
+        message: err.message,
+        recipient: c.env.HAZARD_NOTIFY_EMAIL ?? null,
       },
       500,
     );
@@ -154,41 +194,14 @@ app.get("/receipts/:id", async (c) => {
   if (!RECEIPT_ID_RE.test(id)) {
     return c.json({ code: "INVALID_ID", message: "Receipt id format is wrong." }, 400);
   }
-  const r = getRepos();
+  const r = await getRepos(c.env);
   const receipt = await r.receipts.getById(id);
   if (!receipt) return c.json({ code: "NOT_FOUND", message: "Receipt not found." }, 404);
-  const linkedCase = receipt.caseId
-    ? ((await r.cases.getById(receipt.caseId)) ?? undefined)
+  const agency = receipt.signpostedAgencyKey
+    ? ((await r.agencies.getByKey(receipt.signpostedAgencyKey)) ?? undefined)
     : undefined;
-  const html = renderReceiptHtml({ receipt, case: linkedCase });
+  const html = renderReceiptHtml({ receipt, agency });
   return c.html(html);
 });
-
-app.get("/export/cases.csv", async (c) => {
-  const token = c.req.query("token");
-  const expected = c.env.EXPORT_TOKEN;
-  if (!expected || !token || !constantTimeEqual(token, expected)) {
-    return c.json({ code: "UNAUTHORIZED", message: "Invalid or missing token." }, 401);
-  }
-  const r = getRepos();
-  const cases = await r.cases.listForExport();
-  const now = new Date().toISOString();
-  for (const x of cases) await r.cases.markExported(x.id, now);
-  const csv = casesToCsv(cases);
-  return new Response(csv, {
-    status: 200,
-    headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="goodbois-cases-${now.slice(0, 10)}.csv"`,
-    },
-  });
-});
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
 
 export default app;
