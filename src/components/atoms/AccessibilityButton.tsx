@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Accessibility } from "lucide-react";
+import { Keyboard } from "lucide-react";
 import { useUIStrings } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 import AccessibilitySheet from "./AccessibilitySheet";
@@ -31,7 +31,7 @@ export default function AccessibilityButton({
           className
         )}
       >
-        <Accessibility className="h-7 w-7" aria-hidden="true" />
+        <Keyboard className="h-7 w-7" aria-hidden="true" />
       </button>
       <AccessibilitySheet open={open} onOpenChange={setOpen} />
     </>

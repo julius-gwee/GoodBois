@@ -102,6 +102,12 @@ export type TurnRequest = {
 
 export type TurnState = "listening" | "followup" | "done";
 
+export type ToolInvocationSummary =
+  | { name: "signpost"; args: SignpostToolCall["args"]; ok: true; data: SignpostResult }
+  | { name: "reportHazard"; args: ReportHazardToolCall["args"]; ok: true; data: ReportHazardResult }
+  | { name: "generateReceipt"; args: GenerateReceiptArgs; ok: true; data: GenerateReceiptResult }
+  | { name: ToolName; args: unknown; ok: false; error: ToolError };
+
 export type TurnResponse = {
   sessionId: string;
   state: TurnState;
@@ -109,6 +115,7 @@ export type TurnResponse = {
   kioskMessage: string;
   audioUrl?: string;
   receiptUrl?: string;
+  toolCalls?: ToolInvocationSummary[];
   error?: { code: string; message: string; fallbackAvailable: boolean };
 };
 

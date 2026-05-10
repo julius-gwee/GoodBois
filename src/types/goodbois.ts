@@ -74,6 +74,30 @@ export type TurnRequest = {
 
 export type TurnState = "listening" | "followup" | "done";
 
+export type ToolErrorCode =
+  | "AGENCY_NOT_ALLOWED"
+  | "TOOL_NOT_ALLOWED"
+  | "VALIDATION_FAILED"
+  | "TOOL_FAILED";
+
+export type ToolError = {
+  code: ToolErrorCode;
+  message: string;
+  fallbackAvailable: boolean;
+};
+
+export type SignpostResult = { agency: AgencyContact };
+export type ReportHazardResult = { referenceId: string; routedTo: string };
+export type GenerateReceiptResult = { receiptId: string; url: string };
+
+export type ToolName = "signpost" | "reportHazard" | "generateReceipt";
+
+export type ToolInvocationSummary =
+  | { name: "signpost"; args: SignpostToolCall["args"]; ok: true; data: SignpostResult }
+  | { name: "reportHazard"; args: ReportHazardToolCall["args"]; ok: true; data: ReportHazardResult }
+  | { name: "generateReceipt"; args: GenerateReceiptArgs; ok: true; data: GenerateReceiptResult }
+  | { name: ToolName; args: unknown; ok: false; error: ToolError };
+
 export type TurnResponse = {
   sessionId: string;
   state: TurnState;
@@ -81,6 +105,7 @@ export type TurnResponse = {
   kioskMessage: string;
   audioUrl?: string;
   receiptUrl?: string;
+  toolCalls?: ToolInvocationSummary[];
   error?: { code: string; message: string; fallbackAvailable: boolean };
 };
 
