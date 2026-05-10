@@ -1,29 +1,6 @@
-import type { KioskSession } from "../../types/contracts";
-import type { Repos, SessionRepo } from "../repos";
+import type { Repos } from "../repos";
 import { D1AgencyRepo } from "./agencies";
 import { D1ReceiptRepo } from "./receipts";
-
-const d1FallbackSessions = new Map<string, KioskSession>();
-
-const sessionRepo: SessionRepo = {
-  async get(id) {
-    const row = d1FallbackSessions.get(id);
-    if (!row) return null;
-    return {
-      ...row,
-      history: row.history.map((message) => ({ ...message })),
-    };
-  },
-  async put(session) {
-    d1FallbackSessions.set(session.id, {
-      ...session,
-      history: session.history.map((message) => ({ ...message })),
-    });
-  },
-  async delete(id) {
-    d1FallbackSessions.delete(id);
-  },
-};
 
 /**
  * Creates the D1-backed slice of the worker's `Repos` contract. Per the
@@ -48,7 +25,6 @@ export async function makeD1Repos(
   return {
     agencies: new D1AgencyRepo(db),
     receipts: new D1ReceiptRepo(db),
-    sessions: sessionRepo,
     toolInvocations: { record: async () => { /* no-op for MVP */ } },
   };
 }

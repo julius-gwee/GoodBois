@@ -20,6 +20,8 @@ const MapCanvas = dynamic(() => import("./MapCanvas"), {
   loading: () => <div className="min-h-[48dvh] flex-1 bg-deep-linen lg:min-h-dvh" />,
 });
 
+const supportedLanguages: DirectoryLanguage[] = ["en", "zh-Hans", "nan-Hant", "ms", "ta"];
+
 type KawanDirectoryAppProps = {
   initialLanguage?: DirectoryLanguage;
   initialFromChat?: boolean;
@@ -42,8 +44,24 @@ export function KawanDirectoryApp({
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showResourcePrintPreview, setShowResourcePrintPreview] = useState(false);
   const [routeMode, setRouteMode] = useState<RouteMode>("wheelchair");
-  const [fromChat] = useState(initialFromChat);
+  const [fromChat, setFromChat] = useState(initialFromChat);
   const [mode, setMode] = useState<"map" | "chat">(initialFromChat ? "map" : "map");
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const params = new URLSearchParams(window.location.search);
+      const languageParam = params.get("language");
+      const fromParam = params.get("from");
+      const sessionId = params.get("sessionId");
+
+      if (supportedLanguages.includes(languageParam as DirectoryLanguage)) {
+        setLanguage(languageParam as DirectoryLanguage);
+      }
+      setFromChat(Boolean(sessionId) || fromParam === "chat");
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

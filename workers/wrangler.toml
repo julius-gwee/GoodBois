@@ -2,16 +2,14 @@ name = "goodbois"
 main = "src/index.ts"
 compatibility_date = "2026-05-09"
 
-# AI binding (Whisper STT, MeloTTS) — used today.
+# AI binding (Whisper STT, MeloTTS) used today.
 [ai]
 binding = "AI"
 
-# WORKER_URL is intentionally NOT set here. The worker derives its public
-# origin from `c.req.url.origin` at request time, which is correct in both
-# `wrangler dev` (localhost) and deployed prod (workers.dev or custom
-# domain). Add it back to [env.production.vars] only if you ever need to
-# override that — e.g. serving receipts through a different domain than the
-# worker itself.
+# WORKER_URL is intentionally not set here. The worker derives its public
+# origin from c.req.url.origin at request time, which is correct in both
+# wrangler dev and deployed production. Add it back to environment vars only
+# if receipts need to be served from a different domain than the Worker.
 [vars]
 ONEMAP_API_BASE_URL = "https://www.onemap.gov.sg"
 ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
@@ -19,14 +17,9 @@ ONEMAP_WHEELCHAIR_ROUTE_TYPE = "walk"
 # ---------------------------------------------------------------------------
 # Persistence bindings.
 #
-# KV   = ephemeral KioskSession state, wiped after each terminal turn.
-# D1   = durable artifacts (locations / receipts / cases audit trail).
-# R2   = NOT YET USED — reserved for generated receipt PDFs (Phase 5).
-#
-# Before `wrangler dev` will start with these enabled, run:
-#   npx wrangler kv:namespace create SESSION_KV
-#   npx wrangler d1 create goodbois
-# and paste the returned IDs into the placeholders below.
+# KV = ephemeral KioskSession state, wiped after each terminal turn.
+# D1 = durable artifacts: locations, receipts, and case audit trail.
+# R2 = reserved for generated receipt PDFs in a later phase.
 #
 # Then apply the schema to your local D1 SQLite mirror:
 #   npx wrangler d1 migrations apply goodbois --local
