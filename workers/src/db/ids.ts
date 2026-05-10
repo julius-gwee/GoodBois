@@ -10,7 +10,25 @@ export function generateId(prefix: Prefix, now: Date = new Date()): string {
   return `${prefix}-${ymd}-${String(next).padStart(3, "0")}`;
 }
 
-function sgYmd(d: Date): string {
+/**
+ * Bumps the in-isolate counter for `prefix` on the given day up to at least
+ * `value`, so the next `generateId` call returns `value + 1` (or higher).
+ *
+ * Workers gives each isolate its own module-level `counters` map, so a freshly
+ * spun-up isolate restarts at `-001` and collides with rows a previous isolate
+ * already wrote. Durable repos call this to reseed the counter from the
+ * database before allocating. See `D1ReceiptRepo.create`.
+ */
+export function ensureCounterAtLeast(
+  prefix: Prefix,
+  value: number,
+  now: Date = new Date(),
+): void {
+  const key = `${prefix}-${sgYmd(now)}`;
+  if ((counters.get(key) ?? 0) < value) counters.set(key, value);
+}
+
+export function sgYmd(d: Date = new Date()): string {
   const sg = new Date(d.getTime() + 8 * 60 * 60 * 1000);
   const y = sg.getUTCFullYear();
   const m = String(sg.getUTCMonth() + 1).padStart(2, "0");
