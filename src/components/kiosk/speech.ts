@@ -1,9 +1,9 @@
 // src/components/kiosk/speech.ts
 //
-// Browser speech helpers used by the kiosk: live interim transcription via the
-// Web Speech API (display-only — the authoritative transcript comes from the
-// backend) and a speechSynthesis fallback for when the backend returns no TTS
-// audio. Both degrade to no-ops on unsupported browsers (Safari/Firefox).
+// Live interim transcription via the Web Speech API (display-only — the
+// authoritative transcript comes from the backend). Degrades to null on
+// unsupported browsers (Safari/Firefox). The speechSynthesis fallback lives in
+// the shared @/lib/browser-speech helper.
 
 type SpeechRecognitionAlternative = { transcript: string };
 type SpeechRecognitionResult = { 0: SpeechRecognitionAlternative };
@@ -62,19 +62,4 @@ export function startLiveTranscription(
   }
 
   return recognition;
-}
-
-export function speakViaBrowser(text: string, language: string): boolean {
-  if (typeof window === "undefined" || !window.speechSynthesis) return false;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language;
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    window.speechSynthesis.speak(utterance);
-    return true;
-  } catch {
-    return false;
-  }
 }

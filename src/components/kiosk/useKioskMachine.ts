@@ -10,10 +10,10 @@ import {
   type CapturedAudio,
 } from "./audioCapture";
 import {
-  speakViaBrowser,
   startLiveTranscription,
   type SpeechRecognitionInstance,
 } from "./speech";
+import { speakViaBrowser } from "@/lib/browser-speech";
 import { fetchTurn, USE_REAL_TURN } from "./turn";
 import {
   DEFAULT_LANGUAGE,

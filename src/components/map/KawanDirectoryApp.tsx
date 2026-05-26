@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 
 import { getLocalizedText, getRouteForMode, filterResources } from "@/lib/map/directory";
+import { speakViaBrowser } from "@/lib/browser-speech";
 import { loadResources, loadRoutes, type DataSource } from "@/lib/map/api";
 import { demoResources, demoRoutes } from "@/lib/map/fixtures";
 import { t } from "@/lib/map/i18n";
@@ -114,12 +115,7 @@ export function KawanDirectoryApp({
   }
 
   function speak(text: string) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    speakViaBrowser(text, language);
   }
 
   if (mode === "chat") {

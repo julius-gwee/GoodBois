@@ -19,6 +19,7 @@ import {
   translateAdapter,
   type TranslateEnv,
 } from "./translateAdapter";
+import { isMockMode } from "./mockMode";
 
 export type SttInput = {
   audio: ArrayBuffer;
@@ -54,17 +55,11 @@ const MOCK_FIXTURES: STTResult[] = [
 
 let mockCallIndex = 0;
 
-function isMockMode(env: SttEnv): boolean {
-  if (env.STT_MOCK === "true") return true;
-  if (!env.AI) return true;
-  return false;
-}
-
 export async function sttAdapter(
   input: SttInput,
   env: SttEnv,
 ): Promise<STTResult> {
-  if (isMockMode(env)) {
+  if (isMockMode(env.STT_MOCK, Boolean(env.AI))) {
     const fixture = MOCK_FIXTURES[mockCallIndex % MOCK_FIXTURES.length];
     mockCallIndex++;
     return { ...fixture };

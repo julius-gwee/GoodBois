@@ -9,6 +9,7 @@
 //   3. Mock keyword heuristics — offline dev / tests / CI.
 
 import type { KioskSessionMessage } from "../types/contracts";
+import { extractChatContent, sealionChatCompletion } from "./sealion";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -33,8 +34,6 @@ export type Backend = "mock" | "sealion" | "workers-ai";
 // Internals
 // ---------------------------------------------------------------------------
 
-const SEALION_DEFAULT_BASE_URL = "https://api.sea-lion.ai/v1";
-const SEALION_MODEL = "aisingapore/Gemma-SEA-LION-v4-27B-IT";
 const WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 
 export function pickBackend(env: LlmEnv): Backend {
@@ -72,50 +71,25 @@ async function callSealion(
   messages: LlmMessage[],
   env: LlmEnv,
 ): Promise<string> {
-  const baseUrl = env.SEALION_BASE_URL ?? SEALION_DEFAULT_BASE_URL;
-  const body = JSON.stringify({
-    model: SEALION_MODEL,
-    messages,
-    max_tokens: 1024,
-    temperature: 0,
-  });
+  const opts = { messages, maxTokens: 1024, temperature: 0 };
 
   // One retry with a short backoff on 429 / 5xx. SEALion's free tier throttles
   // aggressively; a single retry rescues the demo from transient blips
   // without hiding a sustained outage.
-  let response = await sealionPost(baseUrl, body, env.SEALION_API_KEY);
+  let response = await sealionChatCompletion(env, opts);
   if (response.status === 429 || response.status >= 500) {
     const retryAfter = Number(response.headers.get("retry-after")) || 3;
     await new Promise((resolve) =>
       setTimeout(resolve, Math.min(retryAfter, 5) * 1000),
     );
-    response = await sealionPost(baseUrl, body, env.SEALION_API_KEY);
+    response = await sealionChatCompletion(env, opts);
   }
 
   if (!response.ok) {
     throw new Error(`SEALion LLM failed: ${response.status}`);
   }
 
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  return json.choices?.[0]?.message?.content ?? "";
-}
-
-function sealionPost(
-  baseUrl: string,
-  body: string,
-  apiKey: string | undefined,
-): Promise<Response> {
-  return fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`,
-    },
-    body,
-  });
+  return extractChatContent(await response.json()) ?? "";
 }
 
 async function callWorkersAi(

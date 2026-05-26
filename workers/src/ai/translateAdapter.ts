@@ -10,6 +10,9 @@
 //
 // SEALion docs: https://sea-lion.ai (subject to change; verify endpoint at integration time).
 
+import { extractChatContent, sealionChatCompletion } from "./sealion";
+import { isMockMode } from "./mockMode";
+
 export type TranslateInput = {
   text: string;
   from: string; // BCP-47
@@ -47,14 +50,6 @@ const MOCK_TRANSLATIONS: Record<string, string> = {
   "Which block and floor do you live at?|zh-Hans": "请问您住在哪一座和哪一层？",
 };
 
-const DEFAULT_BASE_URL = "https://api.sea-lion.ai/v1";
-
-function isMockMode(env: TranslateEnv): boolean {
-  if (env.TRANSLATE_MOCK === "true") return true;
-  if (!env.SEALION_API_KEY) return true;
-  return false;
-}
-
 function bcp47ToHumanLang(code: string): string {
   // Check dialect tags before generic zh-* so "nan" / "yue" don't get mapped
   // to Mandarin.
@@ -74,48 +69,35 @@ export async function translateAdapter(
   input: TranslateInput,
   env: TranslateEnv
 ): Promise<TranslateResult> {
-  if (isMockMode(env)) {
+  if (isMockMode(env.TRANSLATE_MOCK, Boolean(env.SEALION_API_KEY))) {
     const key = `${input.text}|${input.to}`;
     const cached = MOCK_TRANSLATIONS[key];
     if (cached) return { translated: cached };
     return { translated: input.text };
   }
 
-  const baseUrl = env.SEALION_BASE_URL ?? DEFAULT_BASE_URL;
   const sourceLang = bcp47ToHumanLang(input.from);
   const targetLang = bcp47ToHumanLang(input.to);
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${env.SEALION_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "aisingapore/Gemma-SEA-LION-v4-27B-IT",
-      messages: [
-        {
-          role: "system",
-          content:
-            `You are a translation engine. Translate the user's message from ${sourceLang} to ${targetLang}. ` +
-            "Output ONLY the translation. No explanations. No alternatives. No markdown. No quotes around the result. " +
-            "If the input is already in the target language, output it unchanged.",
-        },
-        { role: "user", content: input.text },
-      ],
-      temperature: 0,
-    }),
+  const response = await sealionChatCompletion(env, {
+    messages: [
+      {
+        role: "system",
+        content:
+          `You are a translation engine. Translate the user's message from ${sourceLang} to ${targetLang}. ` +
+          "Output ONLY the translation. No explanations. No alternatives. No markdown. No quotes around the result. " +
+          "If the input is already in the target language, output it unchanged.",
+      },
+      { role: "user", content: input.text },
+    ],
+    temperature: 0,
   });
 
   if (!response.ok) {
     throw new Error(`SEALion translate failed: ${response.status}`);
   }
 
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-
-  const raw = json.choices?.[0]?.message?.content?.trim() ?? input.text;
+  const raw = extractChatContent(await response.json())?.trim() ?? input.text;
   return { translated: stripTranslationCommentary(raw) };
 }
 
@@ -141,44 +123,35 @@ export async function identifyLanguage(
   const text = input.text.trim();
   if (!text) return "en";
 
-  if (isMockMode(env)) {
+  if (isMockMode(env.TRANSLATE_MOCK, Boolean(env.SEALION_API_KEY))) {
     return heuristicLanguage(text, input.hint);
   }
 
-  const baseUrl = env.SEALION_BASE_URL ?? DEFAULT_BASE_URL;
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${env.SEALION_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "aisingapore/Gemma-SEA-LION-v4-27B-IT",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a language identifier. Read the user's message and respond with " +
-              "ONE of these BCP-47 tags, and nothing else: en, zh-Hans, ms, ta, nan, yue. " +
-              "en = English (including Singlish). " +
-              "zh-Hans = standard Mandarin Chinese (Simplified). " +
-              "ms = Bahasa Melayu (treat Bahasa Indonesia as ms too). " +
-              "ta = Tamil. " +
-              "nan = Hokkien / Min Nan (Singaporean Hokkien lexicon: 啥物, 会当, 共, 揣, 拍, etc., or romanised Hokkien). " +
-              "yue = Cantonese / Yue (dialect particles like 嘅, 啲, 唔, 乜嘢, 紧, 撳, 睇, 點解 — distinguish from Mandarin even when written in Hanzi). " +
-              "Prefer nan or yue over zh-Hans whenever a dialect-specific marker appears. " +
-              (input.hint
-                ? `An upstream auto-detector guessed "${input.hint}" — this guess is often wrong, verify against the text. `
-                : "") +
-              "Output only the tag. No punctuation. No explanation.",
-          },
-          { role: "user", content: text },
-        ],
-        temperature: 0,
-        max_tokens: 8,
-      }),
+    response = await sealionChatCompletion(env, {
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a language identifier. Read the user's message and respond with " +
+            "ONE of these BCP-47 tags, and nothing else: en, zh-Hans, ms, ta, nan, yue. " +
+            "en = English (including Singlish). " +
+            "zh-Hans = standard Mandarin Chinese (Simplified). " +
+            "ms = Bahasa Melayu (treat Bahasa Indonesia as ms too). " +
+            "ta = Tamil. " +
+            "nan = Hokkien / Min Nan (Singaporean Hokkien lexicon: 啥物, 会当, 共, 揣, 拍, etc., or romanised Hokkien). " +
+            "yue = Cantonese / Yue (dialect particles like 嘅, 啲, 唔, 乜嘢, 紧, 撳, 睇, 點解 — distinguish from Mandarin even when written in Hanzi). " +
+            "Prefer nan or yue over zh-Hans whenever a dialect-specific marker appears. " +
+            (input.hint
+              ? `An upstream auto-detector guessed "${input.hint}" — this guess is often wrong, verify against the text. `
+              : "") +
+            "Output only the tag. No punctuation. No explanation.",
+        },
+        { role: "user", content: text },
+      ],
+      temperature: 0,
+      maxTokens: 8,
     });
   } catch {
     return heuristicLanguage(text, input.hint);
@@ -186,10 +159,7 @@ export async function identifyLanguage(
 
   if (!response.ok) return heuristicLanguage(text, input.hint);
 
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const raw = json.choices?.[0]?.message?.content?.trim() ?? "";
+  const raw = extractChatContent(await response.json())?.trim() ?? "";
   return normaliseLangTag(raw) ?? heuristicLanguage(text, input.hint);
 }
 
