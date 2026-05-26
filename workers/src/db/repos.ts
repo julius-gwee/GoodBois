@@ -3,7 +3,6 @@ import type {
   AgencyContact,
   KioskSession,
   Receipt,
-  ToolInvocation,
 } from "../types/contracts";
 
 export type AgencyListFilter = {
@@ -30,13 +29,8 @@ export interface SessionRepo {
   delete(id: string): Promise<void>;
 }
 
-export interface ToolInvocationRepo {
-  record(invocation: ToolInvocation): Promise<void>;
-}
-
 export type Repos = {
   agencies: AgencyRepo;
   receipts: ReceiptRepo;
   sessions: SessionRepo;
-  toolInvocations: ToolInvocationRepo;
 };

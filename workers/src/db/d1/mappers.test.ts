@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   rowToAgency, agencyToRow,
-  rowToSessionCase, sessionCaseToRow,
   rowToReceipt, receiptToRow,
 } from "./mappers";
-import type { LocationRow, SessionCaseRow, ReceiptRow } from "./types";
+import type { LocationRow, ReceiptRow } from "./types";
 
 describe("rowToAgency", () => {
   it("parses a fully-populated row", () => {
@@ -61,29 +60,6 @@ describe("agencyToRow", () => {
   });
 });
 
-describe("rowToSessionCase", () => {
-  it("parses history_json and tool_calls_json", () => {
-    const row: SessionCaseRow = {
-      id: "GBC-20260510-001",
-      session_id: "sess-1", kiosk_id: "kiosk-1", src_lang: "en-SG",
-      request_type: "signpost",
-      history_json: '[{"role":"user","textEnglish":"hi","spokenAt":"2026-05-10T01:00:00Z"}]',
-      tool_calls_json: '[{"name":"signpost","args":{"agencyKey":"x"}}]',
-      kiosk_message: "hello",
-      receipt_id: "GBR-20260510-001",
-      hazard_reference_id: null,
-      signposted_agency_key: "x",
-      created_at: "2026-05-10T01:00:00Z",
-    };
-    const c = rowToSessionCase(row);
-    expect(c.history).toHaveLength(1);
-    expect(c.history[0].textEnglish).toBe("hi");
-    expect(c.toolCalls[0].name).toBe("signpost");
-    expect(c.receiptId).toBe("GBR-20260510-001");
-    expect(c.hazardReferenceId).toBeUndefined();
-  });
-});
-
 describe("rowToReceipt", () => {
   it("parses things_to_bring_json", () => {
     const row: ReceiptRow = {
@@ -101,20 +77,7 @@ describe("rowToReceipt", () => {
   });
 });
 
-describe("sessionCaseToRow / receiptToRow round-trip", () => {
-  it("case round-trips", () => {
-    const c = {
-      id: "GBC-1", sessionId: "s", kioskId: "k", srcLang: "en-SG",
-      requestType: "signpost" as const,
-      history: [{ role: "user" as const, textEnglish: "hi", spokenAt: "t" }],
-      toolCalls: [{ name: "signpost" as const, args: {} }],
-      kioskMessage: "msg",
-      createdAt: "t",
-    };
-    const back = rowToSessionCase(sessionCaseToRow(c));
-    expect(back).toEqual(c);
-  });
-
+describe("receiptToRow round-trip", () => {
   it("receipt round-trips", () => {
     const r = {
       id: "GBR-1", sessionId: "s", language: "zh-SG",

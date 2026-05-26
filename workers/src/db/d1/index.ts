@@ -14,9 +14,6 @@ import { D1ReceiptRepo } from "./receipts";
  * complete before any repo methods are called, hence the async signature.
  *
  * IMPORTANT: This function is async. Always `await makeD1Repos(env.DB)`.
- *
- * The `toolInvocations` repo is a no-op for now — main's tool layer doesn't
- * write to it, and the audit table isn't part of the MVP D1 schema.
  */
 export async function makeD1Repos(
   db: D1Database,
@@ -25,6 +22,5 @@ export async function makeD1Repos(
   return {
     agencies: new D1AgencyRepo(db),
     receipts: new D1ReceiptRepo(db),
-    toolInvocations: { record: async () => { /* no-op for MVP */ } },
   };
 }
