@@ -10,6 +10,7 @@
 
 import type { KioskSessionMessage } from "../types/contracts";
 import { extractChatContent, sealionChatCompletion } from "./sealion";
+import { WORKERS_AI_LLM_MODEL } from "./models";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -33,8 +34,6 @@ export type Backend = "mock" | "sealion" | "workers-ai";
 // ---------------------------------------------------------------------------
 // Internals
 // ---------------------------------------------------------------------------
-
-const WORKERS_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 
 export function pickBackend(env: LlmEnv): Backend {
   if (env.LLM_MOCK === "true") return "mock";
@@ -96,7 +95,7 @@ async function callWorkersAi(
   messages: LlmMessage[],
   env: LlmEnv,
 ): Promise<string> {
-  const result = await env.AI!.run(WORKERS_AI_MODEL, {
+  const result = await env.AI!.run(WORKERS_AI_LLM_MODEL, {
     messages,
     max_tokens: 1024,
   });

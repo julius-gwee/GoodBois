@@ -49,6 +49,8 @@ type OneMapRouteResponse = {
 
 type OneMapRouteSource = "bfa" | "public" | "public-walk-fallback";
 
+const ONEMAP_DEFAULT_BASE_URL = "https://www.onemap.gov.sg";
+
 export const defaultKioskOrigin = {
   latitude: workerKioskLocation.latitude,
   longitude: workerKioskLocation.longitude,
@@ -91,7 +93,7 @@ async function fetchOneMapRoute(
     return undefined;
   }
 
-  const apiBaseUrl = env.ONEMAP_API_BASE_URL ?? "https://www.onemap.gov.sg";
+  const apiBaseUrl = env.ONEMAP_API_BASE_URL ?? ONEMAP_DEFAULT_BASE_URL;
   const routeType = getOneMapRouteType(mode, source, env);
   const url = new URL(source === "bfa" ? "/api/bfa/routingsvc/route" : "/api/public/routingsvc/route", apiBaseUrl);
   url.searchParams.set("start", `${origin.latitude},${origin.longitude}`);
@@ -144,7 +146,7 @@ async function getOneMapToken(env: WorkerEnv): Promise<string | undefined> {
     return undefined;
   }
 
-  const apiBaseUrl = env.ONEMAP_API_BASE_URL ?? "https://www.onemap.gov.sg";
+  const apiBaseUrl = env.ONEMAP_API_BASE_URL ?? ONEMAP_DEFAULT_BASE_URL;
   const response = await fetch(new URL("/api/auth/post/getToken", apiBaseUrl), {
     method: "POST",
     headers: {

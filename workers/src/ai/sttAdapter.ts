@@ -20,6 +20,7 @@ import {
   type TranslateEnv,
 } from "./translateAdapter";
 import { isMockMode } from "./mockMode";
+import { WHISPER_STT_MODEL } from "./models";
 
 export type SttInput = {
   audio: ArrayBuffer;
@@ -65,7 +66,7 @@ export async function sttAdapter(
     return { ...fixture };
   }
 
-  const result = await env.AI!.run("@cf/openai/whisper", {
+  const result = await env.AI!.run(WHISPER_STT_MODEL, {
     audio: Array.from(new Uint8Array(input.audio)),
   });
 

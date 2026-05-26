@@ -15,6 +15,7 @@ export type TtsResult = {
 };
 
 import { isMockMode } from "./mockMode";
+import { MELOTTS_MODEL } from "./models";
 
 export type TtsEnv = {
   AI?: {
@@ -44,7 +45,7 @@ export async function ttsAdapter(
     return {}; // no audio in mock mode; frontend handles silence
   }
 
-  const result = await env.AI!.run("@cf/myshell-ai/melotts", {
+  const result = await env.AI!.run(MELOTTS_MODEL, {
     prompt: input.text,
     lang: toMeloLang(input.language),
   });
