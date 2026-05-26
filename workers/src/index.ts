@@ -26,6 +26,9 @@ export type WorkerBindings = OrchestratorEnv & WorkerEnv & {
   RESEND_API_KEY?: string;
   HAZARD_NOTIFY_EMAIL?: string;
   HAZARD_FROM_EMAIL?: string;
+  // Opt-in flag gating dev-only routes (e.g. /dev/test-hazard). Unset/anything
+  // other than "true" => those routes 404 as if absent. Never set in production.
+  ENABLE_DEV_ROUTES?: string;
 };
 
 let memoryRepos: Repos | null = null;
