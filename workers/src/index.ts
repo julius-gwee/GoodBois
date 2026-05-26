@@ -184,12 +184,19 @@ app.post("/turn", async (c) => {
 });
 
 // DEV-ONLY: trigger reportHazard directly to verify the email path before
-// the Phase 7 orchestrator wires it through /turn. Remove or gate behind
-// an env flag before production.
+// the Phase 7 orchestrator wires it through /turn.
+//
+// Gated behind ENABLE_DEV_ROUTES: unless that var is exactly "true" the route
+// responds 404 as if it doesn't exist. Set ENABLE_DEV_ROUTES=true in .dev.vars
+// for local hazard-email debugging; never set it in production.
 //
 // This route AWAITS the mailer call (bypassing the fire-and-forget pattern)
 // so any Resend API error surfaces in the response — useful for debugging.
 app.post("/dev/test-hazard", async (c) => {
+  if (c.env.ENABLE_DEV_ROUTES !== "true") {
+    return c.notFound();
+  }
+
   const body = (await c.req.json().catch(() => ({}))) as Partial<{
     category: string;
     location: string;
