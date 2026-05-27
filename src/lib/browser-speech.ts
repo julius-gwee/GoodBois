@@ -3,8 +3,8 @@
 // Browser speechSynthesis helper shared by the kiosk (KioskShell, via the
 // useKioskMachine hook) and the map directory (KawanDirectoryApp "read aloud").
 // Cancels any in-flight utterance, then speaks. Pass a BCP-47 `language` to
-// pick the right voice. Degrades to a no-op (returns false) on unsupported
-// browsers (Safari/Firefox) or when speechSynthesis throws.
+// pick the right voice. Degrades to a no-op (returns false) in unsupported
+// environments or when speechSynthesis throws.
 
 export function speakViaBrowser(text: string, language?: string): boolean {
   if (typeof window === "undefined" || !window.speechSynthesis) return false;
