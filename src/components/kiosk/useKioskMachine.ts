@@ -71,6 +71,16 @@ export function useKioskMachine() {
       captureHandleRef.current.stop();
       captureHandleRef.current = null;
     }
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      audioPlayerRef.current.removeAttribute("src");
+      audioPlayerRef.current.load();
+      audioPlayerRef.current = null;
+    }
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
     setState("idle");
     setMessages([]);
     setTranscript(null);
