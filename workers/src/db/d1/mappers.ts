@@ -1,9 +1,5 @@
 import type { AgencyContact, Receipt } from "../../types/contracts";
-import type {
-  SessionCase, SessionCaseHistoryEntry, SessionCaseRequestType,
-  SessionCaseRow, SessionCaseToolCall,
-  LocationRow, ReceiptRow,
-} from "./types";
+import type { LocationRow, ReceiptRow } from "./types";
 import type { AgencyCategory } from "../../types/contracts";
 
 function nullable<T>(v: T | null | undefined): T | undefined {
@@ -45,40 +41,6 @@ export function agencyToRow(agency: AgencyContact): LocationRow {
     active: agency.active ? 1 : 0,
     source: agency.source,
     updated_at: agency.updatedAt,
-  };
-}
-
-export function rowToSessionCase(row: SessionCaseRow): SessionCase {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    kioskId: row.kiosk_id,
-    srcLang: row.src_lang,
-    requestType: row.request_type as SessionCaseRequestType,
-    history: JSON.parse(row.history_json) as SessionCaseHistoryEntry[],
-    toolCalls: JSON.parse(row.tool_calls_json) as SessionCaseToolCall[],
-    kioskMessage: row.kiosk_message,
-    receiptId: nullable(row.receipt_id),
-    hazardReferenceId: nullable(row.hazard_reference_id),
-    signpostedAgencyKey: nullable(row.signposted_agency_key),
-    createdAt: row.created_at,
-  };
-}
-
-export function sessionCaseToRow(c: SessionCase): SessionCaseRow {
-  return {
-    id: c.id,
-    session_id: c.sessionId,
-    kiosk_id: c.kioskId,
-    src_lang: c.srcLang,
-    request_type: c.requestType,
-    history_json: JSON.stringify(c.history),
-    tool_calls_json: JSON.stringify(c.toolCalls),
-    kiosk_message: c.kioskMessage,
-    receipt_id: c.receiptId ?? null,
-    hazard_reference_id: c.hazardReferenceId ?? null,
-    signposted_agency_key: c.signpostedAgencyKey ?? null,
-    created_at: c.createdAt,
   };
 }
 

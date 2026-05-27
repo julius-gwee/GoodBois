@@ -5,9 +5,14 @@
 // env vars and passes it through ToolCtx; `reportHazard` invokes it
 // fire-and-forget so email failures never block the kiosk.
 
+const RESEND_API_URL = "https://api.resend.com/emails";
+// Resend's free testing sender. Override per-mailer via HAZARD_FROM_EMAIL once
+// a domain is verified in Resend.
+const DEFAULT_FROM_EMAIL = "GoodBois <onboarding@resend.dev>";
+
 export type ResendSendOpts = {
   apiKey: string;
-  from: string;        // e.g. "GoodBois <onboarding@resend.dev>"
+  from: string;        // e.g. DEFAULT_FROM_EMAIL
   to: string[];        // one or more recipients
   subject: string;
   html: string;
@@ -19,7 +24,7 @@ export type ResendSendOpts = {
  * the response text included for debugging.
  */
 export async function sendResendEmail(opts: ResendSendOpts): Promise<void> {
-  const res = await fetch("https://api.resend.com/emails", {
+  const res = await fetch(RESEND_API_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${opts.apiKey}`,
@@ -46,7 +51,7 @@ export async function sendResendEmail(opts: ResendSendOpts): Promise<void> {
 export type HazardMailerConfig = {
   apiKey: string;          // RESEND_API_KEY
   recipient: string;       // HAZARD_NOTIFY_EMAIL
-  from?: string;           // HAZARD_FROM_EMAIL; default "GoodBois <onboarding@resend.dev>"
+  from?: string;           // HAZARD_FROM_EMAIL; defaults to DEFAULT_FROM_EMAIL
 };
 
 export type HazardEmailInput = {
@@ -70,7 +75,7 @@ export function makeHazardMailer(config: Partial<HazardMailerConfig>): HazardMai
   if (!config.apiKey || !config.recipient) return undefined;
   const apiKey = config.apiKey;
   const recipient = config.recipient;
-  const from = config.from ?? "GoodBois <onboarding@resend.dev>";
+  const from = config.from ?? DEFAULT_FROM_EMAIL;
 
   return async (input: HazardEmailInput): Promise<void> => {
     const subject = `[GoodBois] Hazard report ${input.referenceId}: ${input.category}`;

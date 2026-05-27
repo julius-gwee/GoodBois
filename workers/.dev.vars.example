@@ -14,5 +14,10 @@ HAZARD_NOTIFY_EMAIL=
 # verified your own domain in Resend.
 # HAZARD_FROM_EMAIL=GoodBois <hazards@yourdomain.com>
 
+# Opt-in flag for dev-only routes (POST /dev/test-hazard). Set to "true" to
+# enable them locally; leave unset/absent everywhere else — the routes 404
+# when this isn't "true". NEVER set this in production.
+# ENABLE_DEV_ROUTES=true
+
 # (Existing keys may already live in .dev.vars — this example only
 # documents the new variables added by the hazard-email branch.)

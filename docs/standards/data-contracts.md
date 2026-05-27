@@ -231,7 +231,9 @@ type SessionCase = {
 };
 ```
 
-D1 table: `cases`. Columns are snake-cased (`session_id`, `history_json`, `tool_calls_json`, etc.). See `workers/migrations/0001_initial.sql` and `workers/src/db/d1/types.ts`. Written exactly once per session at the orchestrator's terminal turn (Stage 6), right after KV reset.
+D1 table: `cases` — defined in `workers/migrations/0001_initial.sql` (columns snake-cased: `session_id`, `history_json`, `tool_calls_json`, etc.).
+
+> **Not currently persisted.** The `SessionCase` repo, mappers, and TS types were removed as unused — the orchestrator never wrote `cases` rows (the repo was never wired into `makeD1Repos`). The migration table and this schema are retained for a future audit-trail implementation; re-add the repo + `SessionCase*` types under `workers/src/db/d1/` when Stage 6 persistence is built.
 
 ## ToolInvocation (D1 — audit log)
 

@@ -4,11 +4,21 @@ import { MessageCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 
-import { getLocalizedText, getRouteForMode, filterResources } from "@/lib/map/directory";
+import {
+  getLocalizedText,
+  getRouteForMode,
+  filterResources,
+} from "@/lib/map/directory";
+import { speakViaBrowser } from "@/lib/browser-speech";
 import { loadResources, loadRoutes, type DataSource } from "@/lib/map/api";
 import { demoResources, demoRoutes } from "@/lib/map/fixtures";
 import { t } from "@/lib/map/i18n";
-import type { DirectoryLanguage, Resource, ResourceCategory, RouteMode } from "@/types/goodbois";
+import type {
+  DirectoryLanguage,
+  Resource,
+  ResourceCategory,
+  RouteMode,
+} from "@/types/goodbois";
 import { Button } from "@/components/ui/button";
 import { DirectoryDrawer } from "./DirectoryDrawer";
 import { DirectionsPanel } from "./DirectionsPanel";
@@ -17,7 +27,9 @@ import { ResourceDetailsPanel } from "./ResourceDetailsPanel";
 
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
-  loading: () => <div className="min-h-[48dvh] flex-1 bg-deep-linen lg:min-h-dvh" />,
+  loading: () => (
+    <div className="min-h-[48dvh] flex-1 bg-deep-linen lg:min-h-dvh" />
+  ),
 });
 
 type KawanDirectoryAppProps = {
@@ -36,14 +48,19 @@ export function KawanDirectoryApp({
   const [routesByResource, setRoutesByResource] = useState(demoRoutes);
   const [dataSource, setDataSource] = useState<DataSource>("fixture");
   const [loading, setLoading] = useState(false);
-  const [selectedResource, setSelectedResource] = useState<Resource>(demoResources[0]);
+  const [selectedResource, setSelectedResource] = useState<Resource>(
+    demoResources[0],
+  );
   const [showDetails, setShowDetails] = useState(false);
   const [showDirections, setShowDirections] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [showResourcePrintPreview, setShowResourcePrintPreview] = useState(false);
+  const [showResourcePrintPreview, setShowResourcePrintPreview] =
+    useState(false);
   const [routeMode, setRouteMode] = useState<RouteMode>("wheelchair");
   const [fromChat] = useState(initialFromChat);
-  const [mode, setMode] = useState<"map" | "chat">(initialFromChat ? "map" : "map");
+  const [mode, setMode] = useState<"map" | "chat">(
+    initialFromChat ? "chat" : "map",
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -69,13 +86,23 @@ export function KawanDirectoryApp({
     () => filterResources(resources, { query, category, language: "all" }),
     [resources, query, category],
   );
-  const activeResource = filteredResources.some((resource) => resource.id === selectedResource.id)
+  const activeResource = filteredResources.some(
+    (resource) => resource.id === selectedResource.id,
+  )
     ? selectedResource
     : (filteredResources[0] ?? selectedResource);
 
-  const selectedRoutes = routesByResource[activeResource.id] ?? demoRoutes[activeResource.id] ?? Object.values(demoRoutes)[0] ?? [];
+  const selectedRoutes =
+    routesByResource[activeResource.id] ??
+    demoRoutes[activeResource.id] ??
+    Object.values(demoRoutes)[0] ??
+    [];
   const selectedRoute = getRouteForMode(selectedRoutes, routeMode);
-  const mapPanel = showDirections ? "directions" : showDetails ? "details" : "drawer";
+  const mapPanel = showDirections
+    ? "directions"
+    : showDetails
+      ? "details"
+      : "drawer";
 
   useEffect(() => {
     let cancelled = false;
@@ -114,12 +141,7 @@ export function KawanDirectoryApp({
   }
 
   function speak(text: string) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+    speakViaBrowser(text, language);
   }
 
   if (mode === "chat") {
@@ -131,8 +153,12 @@ export function KawanDirectoryApp({
           </div>
           <div className="max-w-xl space-y-3">
             <p className="text-lg font-medium text-leaf-green">Kawan</p>
-            <h1 className="text-4xl font-semibold">{t(language, "chatPlaceholder")}</h1>
-            <p className="text-xl leading-8 text-deep-linen">{t(language, "chatPlaceholderBody")}</p>
+            <h1 className="text-4xl font-semibold">
+              {t(language, "chatPlaceholder")}
+            </h1>
+            <p className="text-xl leading-8 text-deep-linen">
+              {t(language, "chatPlaceholderBody")}
+            </p>
           </div>
           <Button
             type="button"
@@ -155,12 +181,17 @@ export function KawanDirectoryApp({
             K
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium uppercase tracking-wide text-forest-sage">Kawan</p>
+            <p className="text-sm font-medium uppercase tracking-wide text-forest-sage">
+              Kawan
+            </p>
             <h1 className="truncate text-2xl font-semibold text-deep-charcoal">
               {getLocalizedText(activeResource.name, language)}
             </h1>
           </div>
-          <Button type="button" className="min-h-12 rounded-full bg-forest-sage px-4 text-soft-cream hover:bg-leaf-green">
+          <Button
+            type="button"
+            className="min-h-12 rounded-full bg-forest-sage px-4 text-soft-cream hover:bg-leaf-green"
+          >
             <MessageCircle className="size-5" aria-hidden="true" />
             <span className="hidden sm:inline">{t(language, "talk")}</span>
           </Button>
@@ -214,7 +245,9 @@ export function KawanDirectoryApp({
               [
                 getLocalizedText(activeResource.name, language),
                 getLocalizedText(activeResource.description, language),
-                ...activeResource.practicalNotes.map((note) => getLocalizedText(note, language)),
+                ...activeResource.practicalNotes.map((note) =>
+                  getLocalizedText(note, language),
+                ),
               ].join(". "),
             )
           }
@@ -238,7 +271,11 @@ export function KawanDirectoryApp({
           onPrint={() => setShowPrintPreview(true)}
           onClosePrint={() => setShowPrintPreview(false)}
           onReadAloud={() =>
-            speak(selectedRoute.steps.map((step) => getLocalizedText(step.instruction, language)).join(". "))
+            speak(
+              selectedRoute.steps
+                .map((step) => getLocalizedText(step.instruction, language))
+                .join(". "),
+            )
           }
           onBackToChat={backToChat}
         />

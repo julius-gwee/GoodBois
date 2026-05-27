@@ -14,6 +14,9 @@ export type TtsResult = {
   audioBase64?: string;
 };
 
+import { isMockMode } from "./mockMode";
+import { MELOTTS_MODEL } from "./models";
+
 export type TtsEnv = {
   AI?: {
     run: (model: string, input: unknown) => Promise<ArrayBuffer | { audio: string }>;
@@ -34,21 +37,15 @@ function toMeloLang(bcp47: string): string {
   return "en";
 }
 
-function isMockMode(env: TtsEnv): boolean {
-  if (env.TTS_MOCK === "true") return true;
-  if (!env.AI) return true;
-  return false;
-}
-
 export async function ttsAdapter(
   input: TtsInput,
   env: TtsEnv
 ): Promise<TtsResult> {
-  if (isMockMode(env)) {
+  if (isMockMode(env.TTS_MOCK, Boolean(env.AI))) {
     return {}; // no audio in mock mode; frontend handles silence
   }
 
-  const result = await env.AI!.run("@cf/myshell-ai/melotts", {
+  const result = await env.AI!.run(MELOTTS_MODEL, {
     prompt: input.text,
     lang: toMeloLang(input.language),
   });
