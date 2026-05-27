@@ -110,11 +110,15 @@ export function useKioskMachine() {
       // browser do its own speech-recognition would skip language detection
       // and lock us to the kiosk's default lang.
       captureAudioWithVAD().then((handle) => {
-        if (cancelled || !handle) {
-          // Either the listening effect tore down before the mic opened, or
-          // permission was denied. The thinking effect handles the null-audio
-          // case by resetting to idle.
+        if (cancelled) {
           handle?.stop();
+          return;
+        }
+        if (!handle) {
+          // Mic capture could not start (for example, permission denied or no
+          // getUserMedia support). Leave listening so the existing thinking
+          // flow can recover/reset instead of getting stuck indefinitely.
+          setState((prev) => (prev === "listening" ? "thinking" : prev));
           return;
         }
         captureHandleRef.current = handle;
