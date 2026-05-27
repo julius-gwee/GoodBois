@@ -112,13 +112,21 @@ export async function captureAudioWithVAD(): Promise<CaptureHandle | null> {
     recorder.addEventListener("stop", async () => {
       try {
         const blob = new Blob(chunks, { type: mimeType });
-        const buffer = await blob.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        finish({ base64: btoa(binary), mimeType });
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            if (typeof result === "string") {
+              const commaIndex = result.indexOf(",");
+              resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : "");
+              return;
+            }
+            reject(new Error("Failed to read audio data."));
+          };
+          reader.onerror = () => reject(reader.error ?? new Error("Failed to read audio data."));
+          reader.readAsDataURL(blob);
+        });
+        finish({ base64, mimeType });
       } catch {
         finish(null);
       }
